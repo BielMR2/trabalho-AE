@@ -1,0 +1,64 @@
+# Development environment override
+services:
+  php:
+    build:
+      context: ./api
+      target: frankenphp_dev
+    volumes:
+      - ./api:/app
+      - /app/var
+      - ./api/frankenphp/Caddyfile:/etc/frankenphp/Caddyfile:ro
+      - ./api/frankenphp/conf.d/20-app.dev.ini:/usr/local/etc/php/app.conf.d/20-app.dev.ini:ro
+      # If you develop on Mac or Windows you can remove the vendor/ directory
+      #  from the bind-mount for better performance by enabling the next line:
+      - /app/vendor
+    environment:
+      FRANKENPHP_WORKER_CONFIG: watch
+      MERCURE_EXTRA_DIRECTIVES: demo
+      # See https://xdebug.org/docs/all_settings#mode
+      XDEBUG_MODE: "${XDEBUG_MODE:-off}"
+    extra_hosts:
+      # Ensure that host.docker.internal is correctly defined on Linux
+      - host.docker.internal:host-gateway
+    tty: true
+
+  pwa:
+    build:
+      context: ./pwa
+      target: dev
+    volumes:
+      - ./pwa:/srv/app
+    environment:
+      API_PLATFORM_CREATE_CLIENT_ENTRYPOINT: http://php
+      API_PLATFORM_CREATE_CLIENT_OUTPUT: .
+      # On Linux, you may want to comment the following line for improved performance
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      # Development usage only
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000 || exit 1" ]
+      start_period: 60s
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+###> doctrine/doctrine-bundle ###
+  database:
+    ports:
+      - target: 5432
+        published: 5432
+        protocol: tcp
+###< doctrine/doctrine-bundle ###
+
+###> symfony/mercure-bundle ###
+###< symfony/mercure-bundle ###
+
+  keycloak:
+    build:
+      context: ./helm/api-platform/keycloak/
+      target: keycloak
+    command: start-dev --import-realm
+    volumes:
+      - ./helm/api-platform/keycloak/themes/api-platform-demo:/opt/keycloak/themes/api-platform-demo
+      - ./helm/api-platform/keycloak/config:/opt/keycloak/data/import

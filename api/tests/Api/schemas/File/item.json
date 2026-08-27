@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "@context": {
+            "readOnly": true,
+            "type": "string"
+        },
+        "@id": {
+            "readOnly": true,
+            "type": "string"
+        },
+        "@type": {
+            "readOnly": true,
+            "type": "string"
+        },
+        "id": {
+            "type": "string",
+            "format": "uuid"
+        },
+        "contentUrl": {
+            "type": ["string", "null"]
+        }
+    },
+    "required": [
+        "@context",
+        "@id",
+        "@type"
+    ]
+}

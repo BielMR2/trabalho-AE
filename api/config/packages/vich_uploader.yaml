@@ -1,0 +1,29 @@
+vich_uploader:
+    db_driver: orm
+    storage:   gaufrette
+
+    mappings:
+        image:
+            uri_prefix: "/uploads/images"
+            upload_destination: custom_uploads_image_fs
+            directory_namer:
+                service: Vich\UploaderBundle\Naming\SubdirDirectoryNamer
+                options: { chars_per_dir: 2, dirs: 3 }
+            namer:
+                service: Vich\UploaderBundle\Naming\HashNamer
+                options: { algorithm: 'sha256', length: 50 }
+            inject_on_load:     false
+            delete_on_update:   true
+            delete_on_remove:   true
+        file:
+            uri_prefix: "/uploads/files"
+            upload_destination: custom_uploads_file_fs
+            directory_namer:
+                service: Vich\UploaderBundle\Naming\SubdirDirectoryNamer
+                options: { chars_per_dir: 2, dirs: 3 }
+            namer:
+                service: Vich\UploaderBundle\Naming\HashNamer
+                options: { algorithm: 'sha256', length: 50 }
+            inject_on_load: false
+            delete_on_update: true
+            delete_on_remove: true

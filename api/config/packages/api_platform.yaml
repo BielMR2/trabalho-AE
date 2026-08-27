@@ -1,0 +1,72 @@
+api_platform:
+    title: API Platform's demo
+    version: 4.3.17
+    description: |
+        This is a demo application of the [API Platform](https://api-platform.com) framework.
+        [Its source code](https://github.com/api-platform/demo) includes various examples, check it out!
+        You may also be interested by [the GraphQL entrypoint](/graphql).
+        [A PWA](/books) and [an admin](/admin) are consuming this API.
+    # Mercure integration, remove if unwanted
+    mercure:
+        include_type: true
+    formats:
+        jsonld: ['application/ld+json']
+        json: ['application/json']
+        multipart: ['multipart/form-data']
+    docs_formats:
+        jsonld: ['application/ld+json']
+        jsonopenapi: ['application/vnd.openapi+json']
+        html: ['text/html']
+    http_cache:
+        public: true
+    # Good defaults for REST APIs
+    defaults:
+        stateless: true
+        cache_headers:
+            vary: ['Content-Type', 'Authorization', 'Origin']
+        extra_properties:
+            standard_put: true
+            rfc_7807_compliant_errors: true
+    oauth:
+        enabled: true
+        clientId: '%env(OIDC_SWAGGER_CLIENT_ID)%'
+        pkce: true
+        type: oauth2
+        flow: authorizationCode
+        tokenUrl: '%env(OIDC_SERVER_URL)%/protocol/openid-connect/token'
+        authorizationUrl: '%env(OIDC_SERVER_URL)%/protocol/openid-connect/auth'
+        scopes:
+            openid: (required) Indicates that the application intends to use OIDC to verify the user's identity
+
+services:
+    _defaults:
+        autowire: false
+        autoconfigure: false
+        public: false
+
+    # "name" is not a property, it's only a method "getName"
+    # Can't apply ApiFilter PHP attribute on method, so declare filter manually
+    app.filter.user.admin.name:
+        class: 'App\Doctrine\Orm\Filter\NameFilter'
+        arguments:
+            $managerRegistry: '@doctrine'
+            $logger: '@logger'
+            $nameConverter: '@?api_platform.name_converter'
+            $properties: { name: 'ipartial' }
+        tags: [ 'api_platform.filter' ]
+
+when@prod:
+    api_platform:
+        http_cache:
+            invalidation:
+                enabled: true
+                purger: 'app.http_cache.purger.fault_tolerant_souin'
+                urls:
+                    - '%env(CACHE_INVALIDATION_URL)%'
+
+    services:
+        app.http_cache.purger.fault_tolerant_souin:
+            class: App\HttpCache\FaultTolerantSouinPurger
+            arguments:
+                $inner: '@api_platform.http_cache.purger.souin'
+                $logger: '@logger'

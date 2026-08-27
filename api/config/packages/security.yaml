@@ -1,0 +1,55 @@
+security:
+    # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
+    providers:
+        app_user_provider:
+            id: 'App\Security\Core\UserProvider'
+
+    firewalls:
+        dev:
+            # Ensure dev tools and static assets are always allowed
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+        main:
+            lazy: true
+            provider: app_user_provider
+            stateless: true
+
+            # Activate different ways to authenticate
+            # https://symfony.com/doc/current/security.html#the-firewall
+
+            # https://symfony.com/doc/current/security/impersonating_user.html
+            # switch_user: true
+
+    # Easy way to control access for large sections of your site
+    # Note: Only the *first* matching rule is applied
+    access_control:
+        - { path: ^/profile, roles: IS_AUTHENTICATED_FULLY }
+
+when@prod: &prod
+    security:
+        firewalls:
+            main:
+                access_token:
+                    token_handler: App\Security\Http\AccessToken\Oidc\OidcDiscoveryTokenHandler
+                        # todo support Discovery in Symfony
+#                        oidc:
+#                            claim: 'email'
+#                            base_uri: '%env(OIDC_SERVER_URL)%'
+#                            audience: '%env(OIDC_AUD)%'
+#                            cache: '@cache.app' # default
+#                            cache_ttl: 600 # default
+
+when@dev: *prod
+
+when@test:
+    security:
+        firewalls:
+            main:
+                access_token:
+                    token_handler:
+                        oidc:
+                            claim: 'email'
+                            audience: '%env(OIDC_AUD)%'
+                            issuers: [ '%env(OIDC_SERVER_URL)%' ]
+                            algorithm: 'ES256'
+                            keyset: '{"keys":[%env(OIDC_JWK)%]}'

@@ -1,0 +1,66 @@
+# Production environment override
+services:
+  php:
+    image: ${PHP_DOCKER_IMAGE}
+    build:
+      context: ./api
+      target: frankenphp_prod
+    environment:
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET}
+      MERCURE_PUBLISHER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
+      CADDY_GLOBAL_OPTIONS: |
+        order cache before rewrite
+        cache {
+            ttl 3600s
+            stale 86400s
+            default_cache_control "public, s-maxage=3600"
+            # Content-negotiated URLs (e.g. /) serve the PWA HTML or the Hydra ld+json by
+            # Accept; without Accept in the cache key, the first cached representation (PWA
+            # HTML) is served to the admin's ld+json entrypoint request, breaking API doc discovery.
+            key {
+                headers Accept
+            }
+            redis {
+                url redis:6379
+            }
+            otter
+            api {
+                souin
+            }
+        }
+      CADDY_SERVER_CACHE: "cache"
+
+  pwa:
+    image: ${PWA_DOCKER_IMAGE}
+    build:
+      context: ./pwa
+      target: prod
+      args:
+        # https://nextjs.org/docs/app/building-your-application/configuring/environment-variables#bundling-environment-variables-for-the-browser
+        NEXT_PUBLIC_OIDC_SERVER_URL: ${NEXT_PUBLIC_OIDC_SERVER_URL}
+    environment:
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000 || exit 1" ]
+      start_period: 5s
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  database:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  keycloak-database:
+    environment:
+      POSTGRES_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD}
+
+  keycloak:
+    image: ${KEYCLOAK_DOCKER_IMAGE}
+    build:
+      context: ./helm/api-platform/keycloak/
+      target: keycloak
+    environment:
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}

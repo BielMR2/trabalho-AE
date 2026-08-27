@@ -1,0 +1,144 @@
+# yaml-language-server: $schema=https://github.com/SchemaStore/schemastore/blob/master/src/schemas/json/github-workflow.json
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      docker-images-version:
+        type: string
+        description: Docker Images Version
+        default: latest
+        required: false
+      gke-cluster:
+        type: string
+        description: Google Kubernetes Engine Cluster
+        required: true
+      gke-zone:
+        type: string
+        description: Google Kubernetes Engine Zone
+        required: true
+      environment:
+        type: string
+        description: GitHub Environment
+        required: true
+      url:
+        type: string
+        description: GitHub Environment URL
+        required: true
+    secrets:
+      gke-credentials:
+        description: Google Kubernetes Engine Credentials as JSON
+        required: true
+      gke-project:
+        description: Google Kubernetes Engine Project
+        required: true
+      cloudflare-api-token:
+        description: Cloudflare API Token
+        required: true
+      cloudflare-zone-id:
+        description: Cloudflare Zone Id
+        required: true
+      keycloak-admin-password:
+        description: Keycloak Admin Password
+        required: true
+    outputs:
+       url:
+         value: ${{ jobs.deploy.outputs.url }}
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: https://${{ inputs.url }}
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    outputs:
+       url: ${{ steps.deploy.outputs.url }}
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v7
+      -
+        name: Auth gcloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.gke-credentials }}
+      -
+        name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ secrets.gke-project }}
+      -
+        name: Configure gcloud
+        run: |
+          gcloud components install gke-gcloud-auth-plugin
+          gcloud --quiet auth configure-docker
+          gcloud container clusters get-credentials ${{ inputs.gke-cluster }} --zone ${{ inputs.gke-zone }}
+      -
+        name: Cache Helm Dependencies
+        uses: actions/cache@v6
+        with:
+          path: helm/api-platform/charts/
+          key: ${{ runner.os }}-helm-dependencies-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-helm-dependencies-
+      -
+        name: Build Helm Dependencies
+        run: |
+          helm repo add external-dns https://kubernetes-sigs.github.io/external-dns/
+          helm dependency build ./helm/api-platform
+      # Release name MUST start with a letter
+      -
+        name: Deploy
+        id: deploy
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            release=prod
+            namespace=$release
+            url=demo.api-platform.com
+          else
+            release=pr-${{ github.event.pull_request.number }}
+            namespace=$release
+            url=$release-demo.api-platform.com
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          cors="https://$url|http://localhost|https://localhost|http://localhost:3000|https://api-platform.github.io"
+          set -o pipefail
+          helm upgrade $release ./helm/api-platform -f ./helm/api-platform/values.yaml \
+            --install \
+            --create-namespace \
+            --debug \
+            --wait \
+            --namespace=$namespace \
+            --set=app.version=${{ github.sha }} \
+            --set=keycloak.image.repository=europe-west1-docker.pkg.dev/${{ secrets.gke-project }}/${{ secrets.gke-project }}/keycloak \
+            --set=keycloak.image.tag=${{ inputs.docker-images-version }} \
+            --set=keycloak.auth.adminPassword=${{ secrets.keycloak-admin-password }} \
+            --set-string=keycloak.extraEnvVars[0].value=https://$url/oidc/ \
+            --set-string=keycloak.extraEnvVars[1].value=https://$url/oidc/ \
+            --set=php.image.repository=europe-west1-docker.pkg.dev/${{ secrets.gke-project }}/${{ secrets.gke-project }}/php \
+            --set=php.image.tag=${{ inputs.docker-images-version }} \
+            --set=pwa.image.repository=europe-west1-docker.pkg.dev/${{ secrets.gke-project }}/${{ secrets.gke-project }}/pwa \
+            --set=pwa.image.tag=${{ inputs.docker-images-version }} \
+            --set=ingress.hosts[0].host=$url \
+            --set=ingress.tls[0].hosts[0]=$url \
+            --set=external-dns.env[0].name=CF_API_TOKEN \
+            --set=external-dns.env[0].value=${{ secrets.cloudflare-api-token }} \
+            --set=external-dns.domainFilters[0]=$url \
+            --set=external-dns.extraArgs[0]=--zone-id-filter=${{ secrets.cloudflare-zone-id }} \
+            --set=external-dns.triggerLoopOnEvent=true \
+            --set-string=external-dns.podAnnotations.deploy-timestamp=$(date +%s) \
+            --set=external-dns.txtOwnerId=$release \
+            --set=php.corsAllowOrigin="^$(echo "$cors" | sed 's/\./\\\\./g')$" \
+            --set=php.trustedHosts="^127\\.0\\.0\\.1|localhost|$(echo "$url" | sed 's/\./\\\\./g')$" \
+            --set=mercure.publicUrl=https://$url/.well-known/mercure \
+            --set=mercure.extraDirectives="demo \
+            cors_origins $(echo "$cors" | sed 's/|/ /g')" \
+            | sed --unbuffered '/USER-SUPPLIED VALUES/,$d'
+      -
+        name: Debug kube events
+        if: failure()
+        run: kubectl get events --namespace=$namespace --sort-by .metadata.creationTimestamp

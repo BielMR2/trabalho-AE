@@ -1,0 +1,9 @@
+/.env
+/helm/api-platform/charts/*
+!/helm/api-platform/charts/.gitignore
+/api/config/reference.php
+
+.agents/*
+.claude/settings.local.json
+.claude/worktrees/
+.mcp.json

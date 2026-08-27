@@ -1,0 +1,42 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "@context": {
+            "readOnly": true,
+            "type": "string"
+        },
+        "@id": {
+            "readOnly": true,
+            "type": "string"
+        },
+        "@type": {
+            "readOnly": true,
+            "type": "string"
+        },
+        "id": {
+            "type": "string",
+            "format": "uuid"
+        },
+        "comment": {
+            "type": ["string", "null"]
+        },
+        "ratings": {
+            "type": "array"
+        },
+        "netVotes": {
+            "type": "integer"
+        },
+        "establishment": {
+            "type": ["string", "object"]
+        }
+    },
+    "required": [
+        "@context",
+        "@id",
+        "@type",
+        "ratings",
+        "establishment"
+    ]
+}

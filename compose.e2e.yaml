@@ -1,0 +1,39 @@
+services:
+  mock-openlibrary:
+    image: node:lts-alpine
+    working_dir: /app
+    volumes:
+      - ./e2e:/app
+    command: sh -c "apk add --no-cache openssl && cd mock-server && node server.js"
+    networks:
+      default:
+        aliases:
+          - openlibrary.org
+          - covers.openlibrary.org
+          - gutendex.com
+
+  php:
+    environment:
+      # Disable HTTP cache during E2E tests: Souin would cache empty API responses
+      # during service startup (before fixtures are loaded) and serve them during tests
+      CADDY_SERVER_CACHE: ""
+    volumes:
+      - ./e2e/mock-server/cert.pem:/usr/local/share/ca-certificates/mock-server.crt:ro
+    depends_on:
+      - mock-openlibrary
+
+  pwa:
+    environment:
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+    depends_on:
+      - mock-openlibrary
+
+  keycloak:
+    command: start-dev --import-realm
+    environment:
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/certs/tls.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/certs/tls.key
+    volumes:
+      - ./helm/api-platform/keycloak/certs/tls.crt:/opt/keycloak/certs/tls.crt:ro
+      - ./helm/api-platform/keycloak/certs/tls.pem:/opt/keycloak/certs/tls.key:ro
+      - ./helm/api-platform/keycloak/config:/opt/keycloak/data/import

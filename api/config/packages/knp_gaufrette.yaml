@@ -1,0 +1,38 @@
+knp_gaufrette:
+    stream_wrapper: ~
+
+    adapters:
+        local_image:
+            local:
+                directory: "%kernel.project_dir%/public/media/images"
+        local_file:
+            local:
+                directory: "%kernel.project_dir%/public/media/files"
+
+    filesystems:
+        custom_uploads_image_fs:
+            adapter: local_image
+        custom_uploads_file_fs:
+            adapter: local_file
+when@prod:
+    knp_gaufrette:
+        adapters:
+            s3_images:
+                aws_s3:
+                    service_id: Aws\S3\S3Client
+                    bucket_name: '%env(S3_BUCKET_NAME)%'
+                    options:
+                        directory: 'images'
+            s3_files:
+                aws_s3:
+                    service_id: Aws\S3\S3Client
+                    bucket_name: '%env(S3_BUCKET_NAME)%'
+                    options:
+                        directory: 'files'
+                        acl: 'private'
+
+        filesystems:
+            custom_uploads_image_fs:
+                adapter: s3_images
+            custom_uploads_file_fs:
+                adapter: s3_files

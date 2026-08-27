@@ -1,0 +1,42 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "@context": {
+            "readOnly": true,
+            "type": "string"
+        },
+        "@id": {
+            "readOnly": true,
+            "type": "string"
+        },
+        "@type": {
+            "readOnly": true,
+            "type": "string"
+        },
+        "totalItems": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "member": {
+            "type": "array",
+            "items": {
+                "$ref": "item.json"
+            }
+        },
+        "view": {
+            "type": "object"
+        },
+        "search": {
+            "type": "object"
+        }
+    },
+    "required": [
+        "@context",
+        "@id",
+        "@type",
+        "totalItems",
+        "member"
+    ]
+}

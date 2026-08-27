@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://github.com/SchemaStore/schemastore/blob/master/src/schemas/json/github-workflow.json
+name: Check
+
+on:
+  workflow_call:
+    inputs:
+      url:
+        type: string
+        description: URL
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v7
+      -
+        name: Setup k6
+        uses: grafana/setup-k6-action@v1.2.1
+      -
+        name: Run local k6 test
+        run: k6 run k6/script.js --out json=results.json
+        env:
+          TARGET: ${{ inputs.url }}

@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "api-platform.fullname" . }}
+  labels:
+    {{- include "api-platform.labels" . | nindent 4 }}
+data:
+  php-app-env: {{ .Values.php.appEnv | quote }}
+  php-app-debug: {{ .Values.php.appDebug | quote }}
+  php-cors-allow-origin: {{ .Values.php.corsAllowOrigin | quote }}
+  php-trusted-hosts: {{ .Values.php.trustedHosts | quote }}
+  php-trusted-proxies: "{{ join "," .Values.php.trustedProxies }}"
+  mercure-url: "http://{{ include "api-platform.fullname" . }}/.well-known/mercure"
+  mercure-public-url: {{ .Values.mercure.publicUrl | default "http://127.0.0.1/.well-known/mercure" | quote }}
+  mercure-extra-directives: {{ .Values.mercure.extraDirectives | quote }}
+  caddy-global-options: {{ tpl .Values.php.caddyGlobalOptions . | quote }}
+  caddy-server-cache: {{ .Values.php.caddyServerCache | default "" | quote }}
+  cache-invalidation-url: "http://localhost:2019/souin-api/souin"
+  oidc-server-url: "https://{{ (first .Values.ingress.hosts).host }}/oidc/realms/demo"
+  oidc-server-url-internal: "http://{{ include "api-platform.fullname" . }}-keycloak/oidc/realms/demo"
+  better-auth-url: "https://{{ (first .Values.ingress.hosts).host }}/api/auth"
+  pwa-client-id: {{ .Values.pwa.oidcClientId | quote }}
+  pwa-authorization-client-id: {{ .Values.php.oidcClientId | quote }}
+  {{- if .Values.keycloak.postgresql.enabled }}
+  keycloak-database-url: {{ printf "jdbc:postgresql://localhost:5432/%s" .Values.keycloak.postgresql.global.postgresql.auth.database | quote }}
+  {{- else }}
+  keycloak-database-url: {{ .Values.keycloak.postgresql.url | quote }}
+  {{- end }}
+
+---
+
+{{- if .Values.keycloak.importRealm.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "api-platform.fullname" . }}-keycloak-realm
+  labels:
+    {{- include "api-platform.labelsKeycloak" . | nindent 4 }}
+data:
+{{ (.Files.Glob .Values.keycloak.importRealm.path).AsConfig | indent 2 }}
+{{- end }}

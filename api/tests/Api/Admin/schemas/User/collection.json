@@ -1,0 +1,148 @@
+{
+    "$schema": "https:\/\/json-schema.org\/draft-07\/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "definitions": {
+        "User:jsonld": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "@id": {
+                    "readOnly": true,
+                    "type": "string",
+                    "pattern": "^/admin/users/.+$"
+                },
+                "@type": {
+                    "readOnly": true,
+                    "type": "string",
+                    "pattern": "^https://schema.org/Person$"
+                },
+                "firstName": {
+                    "description": "The givenName of the person",
+                    "externalDocs": {
+                        "url": "https:\/\/schema.org\/givenName"
+                    },
+                    "type": "string"
+                },
+                "lastName": {
+                    "description": "The familyName of the person",
+                    "externalDocs": {
+                        "url": "https:\/\/schema.org\/familyName"
+                    },
+                    "type": "string"
+                },
+                "name": {
+                    "description": "The name of the person",
+                    "externalDocs": {
+                        "url": "https:\/\/schema.org\/name"
+                    },
+                    "type": "string"
+                }
+            },
+            "required": [
+                "@id",
+                "@type",
+                "firstName",
+                "lastName",
+                "name"
+            ]
+        }
+    },
+    "properties": {
+        "@context": {
+            "readOnly": true,
+            "type": "string",
+            "pattern": "^/contexts/AdminUser$"
+        },
+        "@type": {
+            "readOnly": true,
+            "type": "string",
+            "pattern": "^Collection$"
+        },
+        "@id": {
+            "readOnly": true,
+            "type": "string",
+            "pattern": "^/admin/users$"
+        },
+        "member": {
+            "type": "array",
+            "items": {
+                "$ref": "#\/definitions\/User:jsonld"
+            }
+        },
+        "totalItems": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "view": {
+            "type": "object",
+            "properties": {
+                "@id": {
+                    "type": "string",
+                    "format": "iri-reference"
+                },
+                "@type": {
+                    "type": "string"
+                },
+                "first": {
+                    "type": "string",
+                    "format": "iri-reference"
+                },
+                "last": {
+                    "type": "string",
+                    "format": "iri-reference"
+                },
+                "next": {
+                    "type": "string",
+                    "format": "iri-reference"
+                }
+            }
+        },
+        "search": {
+            "type": "object",
+            "properties": {
+                "@type": {
+                    "type": "string"
+                },
+                "template": {
+                    "type": "string"
+                },
+                "variableRepresentation": {
+                    "type": "string"
+                },
+                "mapping": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "@type": {
+                                "type": "string"
+                            },
+                            "variable": {
+                                "type": "string"
+                            },
+                            "property": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "required": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "required": [
+        "@context",
+        "@type",
+        "@id",
+        "member",
+        "totalItems",
+        "view",
+        "search"
+    ]
+}

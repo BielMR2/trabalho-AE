@@ -1,0 +1,133 @@
+# yaml-language-server: $schema=https://github.com/SchemaStore/schemastore/blob/master/src/schemas/json/github-workflow.json
+name: CD
+
+on:
+  push:
+    tags:
+      - '*'
+  # Deploy PR if "deploy" label exists
+  pull_request:
+    types: [ reopened, synchronize, labeled ]
+
+# Do not use concurrency to prevent simultaneous helm deployments
+jobs:
+  build:
+    name: Build
+    if: ${{ github.repository == 'api-platform/demo' && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'deploy')) }}
+    runs-on: ubuntu-latest
+    env:
+      PHP_DOCKER_IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/php:${{ github.sha }}
+      PWA_DOCKER_IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/pwa:${{ github.sha }}
+      KEYCLOAK_DOCKER_IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/keycloak:${{ github.sha }}
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    outputs:
+      environment: ${{ steps.set-github-outputs.outputs.environment }}
+      url: ${{ steps.set-github-outputs.outputs.url }}
+    steps:
+      -
+        name: Sets GitHub Outputs
+        id: set-github-outputs
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+            echo "url=demo.api-platform.com" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "url=pr-${{ github.event.pull_request.number }}-demo.api-platform.com" >> "$GITHUB_OUTPUT"
+          fi
+      -
+        name: Checkout
+        uses: actions/checkout@v7
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      -
+        name: Auth gcloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          token_format: access_token
+          credentials_json: ${{ secrets.GKE_SA_KEY }}
+      -
+        name: Login to GAR
+        uses: docker/login-action@v4
+        with:
+          registry: europe-west1-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+      -
+        name: Generate BETTER_AUTH_SECRET
+        run: echo "BETTER_AUTH_SECRET=$(openssl rand -hex 32)" >> $GITHUB_ENV
+      # https://nextjs.org/docs/app/building-your-application/configuring/environment-variables#bundling-environment-variables-for-the-browser
+      -
+        name: Generate NEXT_PUBLIC_OIDC_SERVER_URL
+        run: echo "NEXT_PUBLIC_OIDC_SERVER_URL=https://${{ steps.set-github-outputs.outputs.url }}/oidc/realms/demo" >> $GITHUB_ENV
+      -
+        name: Build Docker images
+        uses: docker/bake-action@v7
+        with:
+          # push and load may not be set together
+          # must push manually in a next step
+          pull: true
+          load: true
+          files: |
+            compose.yaml
+            compose.prod.yaml
+          set: |
+            php.cache-from=type=gha,scope=php-${{ github.ref }}
+            php.cache-from=type=gha,scope=php-refs/heads/main
+            php.cache-to=type=gha,scope=php-${{ github.ref }},mode=max
+            pwa.cache-from=type=gha,scope=pwa-${{ github.ref }}
+            pwa.cache-from=type=gha,scope=pwa-refs/heads/main
+            pwa.cache-to=type=gha,scope=pwa-${{ github.ref }},mode=max
+            keycloak.cache-from=type=gha,scope=keycloak-${{ github.ref }}
+            keycloak.cache-from=type=gha,scope=keycloak-refs/heads/main
+            keycloak.cache-to=type=gha,scope=keycloak-${{ github.ref }},mode=max
+      -
+        name: Docker push
+        run: |
+          docker push $PHP_DOCKER_IMAGE
+          docker push $PWA_DOCKER_IMAGE
+          docker push $KEYCLOAK_DOCKER_IMAGE
+      -
+        name: Docker tag and push latest
+        if: github.event_name != 'pull_request'
+        run: |
+          docker tag $PHP_DOCKER_IMAGE europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/php:${{ github.ref_name }}
+          docker tag $PWA_DOCKER_IMAGE europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/pwa:${{ github.ref_name }}
+          docker tag $KEYCLOAK_DOCKER_IMAGE europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/keycloak:${{ github.ref_name }}
+          docker tag $PHP_DOCKER_IMAGE europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/php:latest
+          docker tag $PWA_DOCKER_IMAGE europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/pwa:latest
+          docker tag $KEYCLOAK_DOCKER_IMAGE europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/keycloak:latest
+          docker push europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/php:${{ github.ref_name }}
+          docker push europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/pwa:${{ github.ref_name }}
+          docker push europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/keycloak:${{ github.ref_name }}
+          docker push europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/php:latest
+          docker push europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/pwa:latest
+          docker push europe-west1-docker.pkg.dev/${{ secrets.GKE_PROJECT }}/${{ secrets.GKE_PROJECT }}/keycloak:latest
+
+  deploy:
+    name: Deploy
+    needs: [ build ]
+    uses: ./.github/workflows/deploy.yml
+    with:
+      docker-images-version: ${{ github.sha }}
+      gke-cluster: api-platform-demo
+      gke-zone: europe-west1-c
+      environment: ${{ needs.build.outputs.environment }}
+      url: ${{ needs.build.outputs.url }}
+    secrets:
+      gke-credentials: ${{ secrets.GKE_SA_KEY }}
+      gke-project: ${{ secrets.GKE_PROJECT }}
+      cloudflare-api-token: ${{ secrets.CF_API_TOKEN }}
+      cloudflare-zone-id: ${{ secrets.CF_ZONE_ID }}
+      keycloak-admin-password: ${{ secrets.KEYCLOAK_ADMIN_PASSWORD }}
+
+  check:
+    name: Check
+    needs: [ deploy ]
+    uses: ./.github/workflows/check.yml
+    with:
+      url: ${{needs.deploy.outputs.url}}

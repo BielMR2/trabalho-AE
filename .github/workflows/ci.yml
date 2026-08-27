@@ -1,0 +1,301 @@
+# yaml-language-server: $schema=https://github.com/SchemaStore/schemastore/blob/master/src/schemas/json/github-workflow.json
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - \d+.\d+
+  pull_request: ~
+  workflow_dispatch:
+    inputs:
+      minimum-stability:
+        description: 'Minimum stability'
+        required: false
+        default: 'stable'
+        type: choice
+        options:
+          - dev
+          - alpha
+          - beta
+          - RC
+          - stable
+  # Check api-platform packages with dev every day at 02:00
+  schedule:
+    - cron: 0 2 * * *
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v7
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      -
+        name: Build Docker images
+        uses: docker/bake-action@v7
+        with:
+          pull: true
+          load: true
+          files: |
+            compose.yaml
+            compose.override.yaml
+          set: |
+            php.cache-from=type=gha,scope=php-${{ github.ref }}
+            php.cache-from=type=gha,scope=php-refs/heads/main
+            php.cache-to=type=gha,scope=php-${{ github.ref }},mode=max
+            pwa.cache-from=type=gha,scope=pwa-${{ github.ref }}
+            pwa.cache-from=type=gha,scope=pwa-refs/heads/main
+            pwa.cache-to=type=gha,scope=pwa-${{ github.ref }},mode=max
+            keycloak.cache-from=type=gha,scope=keycloak-${{ github.ref }}
+            keycloak.cache-from=type=gha,scope=keycloak-refs/heads/main
+            keycloak.cache-to=type=gha,scope=keycloak-${{ github.ref }},mode=max
+      -
+        name: Start services
+        run: docker compose up --wait --no-build
+      -
+        name: Update API Platform
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.minimum-stability != 'stable') }}
+        run: |
+          docker compose exec php composer config minimum-stability ${{ inputs.minimum-stability }}
+          docker compose exec php composer update "api-platform/*"
+      -
+        name: Check HTTP reachability
+        run: curl -v --fail-with-body http://localhost
+      -
+        name: Check API reachability
+        run: curl -vk --fail-with-body https://localhost
+      -
+        name: Check PWA reachability
+        run: "curl -vk --fail-with-body -H 'Accept: text/html' https://localhost"
+      -
+        name: Check Mercure reachability
+        run: curl -vkI --fail-with-body https://localhost/.well-known/mercure?topic=test
+      -
+        name: Create test database
+        run: docker compose exec -T php bin/console -e test doctrine:database:create
+      -
+        name: Run migrations
+        run: docker compose exec -T php bin/console -e test doctrine:migrations:migrate --no-interaction
+      -
+        name: Run PHPUnit
+        run: docker compose exec -T php vendor/bin/phpunit
+      -
+        name: Doctrine Schema Validator
+        run: docker compose exec -T php bin/console -e test doctrine:schema:validate
+      -
+        name: Run PHPStan
+        run: docker compose exec -T php vendor/bin/phpstan --memory-limit=256M
+      -
+        name: Run Rector
+        run: docker compose exec -T php vendor/bin/rector --dry-run
+      -
+        name: Check OpenAPI
+        run: docker compose exec -T php bin/console api:openapi:export --yaml | docker run --rm -i -v $(pwd)/redocly.yaml:/spec/redocly.yaml redocly/cli lint /dev/stdin
+      -
+        name: Debug services
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs
+
+  # run e2e tests iso-prod
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    strategy:
+      matrix:
+        # don't run @read and @write scenarios to prevent conflict between them
+        annotation:
+          - '@read'
+          - '@write'
+      fail-fast: false
+    env:
+      PHP_DOCKER_IMAGE: api-platform/demo/php:latest
+      PWA_DOCKER_IMAGE: api-platform/demo/pwa:latest
+      KEYCLOAK_DOCKER_IMAGE: api-platform/demo/keycloak:latest
+      APP_SECRET: ba63418865d58089f7f070e0a437b6d16b1fb970
+      CADDY_MERCURE_JWT_SECRET: 33b04d361e437e0d7d715600fc24fdefba317154
+      POSTGRES_PASSWORD: aae5bf316ef5fe87ad806c6a9240fff68bcfdaf7
+      KEYCLOAK_POSTGRES_PASSWORD: 26d7f630f1524eb210bbf496443f2038a9316e9e
+      KC_BOOTSTRAP_ADMIN_PASSWORD: 2f31e2fad93941b818449fd8d57fd019b6ce7fa5
+      # https://nextjs.org/docs/app/building-your-application/configuring/environment-variables#bundling-environment-variables-for-the-browser
+      NEXT_PUBLIC_OIDC_SERVER_URL: https://localhost/oidc/realms/demo
+      # https://docs.docker.com/compose/environment-variables/envvars/#compose_file
+      COMPOSE_FILE: compose.yaml:compose.prod.yaml:compose.e2e.yaml
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v7
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      -
+        name: Generate BETTER_AUTH_SECRET
+        run: echo "BETTER_AUTH_SECRET=$(openssl rand -hex 32)" >> $GITHUB_ENV
+      -
+        name: Build Docker Images
+        uses: docker/bake-action@v7
+        with:
+          pull: true
+          load: true
+          files: |
+            compose.yaml
+            compose.prod.yaml
+          set: |
+            php.cache-from=type=gha,scope=php-${{ github.ref }}-e2e
+            php.cache-from=type=gha,scope=php-${{ github.ref }}
+            php.cache-from=type=gha,scope=php-refs/heads/main
+            php.cache-to=type=gha,scope=php-${{ github.ref }}-e2e,mode=max
+            pwa.cache-from=type=gha,scope=pwa-${{ github.ref }}-e2e
+            pwa.cache-from=type=gha,scope=pwa-${{ github.ref }}
+            pwa.cache-from=type=gha,scope=pwa-refs/heads/main
+            pwa.cache-to=type=gha,scope=pwa-${{ github.ref }}-e2e,mode=max
+            keycloak.cache-from=type=gha,scope=keycloak-${{ github.ref }}-e2e
+            keycloak.cache-from=type=gha,scope=keycloak-${{ github.ref }}
+            keycloak.cache-from=type=gha,scope=keycloak-refs/heads/main
+            keycloak.cache-to=type=gha,scope=keycloak-${{ github.ref }}-e2e,mode=max
+      -
+        name: Generate Mock Server Certificates
+        run: |
+          openssl req -x509 -newkey rsa:2048 -keyout e2e/mock-server/key.pem -out e2e/mock-server/cert.pem \
+            -days 365 -nodes -subj '/CN=mock-server' \
+            -addext 'subjectAltName=DNS:openlibrary.org,DNS:covers.openlibrary.org,DNS:gutendex.com'
+      -
+        name: Start Services
+        run: docker compose up --wait --no-build
+      -
+        name: Trust Mock Server Certificate
+        run: docker compose exec -T php update-ca-certificates
+      -
+        name: Update API Platform
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.minimum-stability != 'stable') }}
+        run: |
+          docker compose exec php composer config minimum-stability ${{ inputs.minimum-stability }}
+          docker compose exec php composer update "api-platform/*"
+      -
+        name: Load Fixtures
+        run: docker compose run --rm php bin/console doctrine:fixtures:load --no-interaction
+      -
+        name: Run Playwright
+        run: docker run --network host -w /app -v ./e2e:/app --rm --ipc=host mcr.microsoft.com/playwright:v1.62.0-noble /bin/sh -c 'npm i; npx playwright test --grep ${{ matrix.annotation }};'
+      -
+        name: Debug Services
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs
+      -
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-screenshots
+          path: e2e/test-results
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v7
+
+      # Lint Dockerfiles
+      -
+        name: Lint Dockerfiles
+        uses: hadolint/hadolint-action@v3.4.0
+        with:
+          recursive: true
+
+      # Lint API
+      -
+        name: PHP CS Fixer Cache
+        uses: actions/cache@v6
+        with:
+          path: api/.php-cs-fixer.cache
+          key: ${{ runner.OS }}-phpcsfixer-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.OS }}-phpcsfixer-
+      -
+        name: Get API changed files
+        id: api-changed-files
+        uses: tj-actions/changed-files@v47
+        with:
+          files: api/**/*.php
+      -
+        name: Get Extra Arguments for PHP-CS-Fixer
+        id: phpcs-intersection
+        run: |
+          CHANGED_FILES=$(echo "${{ steps.api-changed-files.outputs.all_changed_files }}" | tr ' ' '\n')
+          if ! echo "${CHANGED_FILES}" | grep -qE "^api\/(\\.php-cs-fixer(\\.dist)?\\.php|composer\\.lock)$"; then EXTRA_ARGS=$(printf -- '--path-mode=intersection\n--\n%s' "${CHANGED_FILES}"); else EXTRA_ARGS=''; fi
+          echo "PHPCS_EXTRA_ARGS<<EOF" >> $GITHUB_ENV
+          echo "$EXTRA_ARGS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+      -
+        name: Lint API
+        uses: docker://oskarstark/php-cs-fixer-ga
+        with:
+          args: --config=api/.php-cs-fixer.dist.php -v --dry-run --stop-on-violation --using-cache=no ${{ env.PHPCS_EXTRA_ARGS }}"
+
+      # Lint PWA
+      -
+        name: Install PNPM
+        uses: pnpm/action-setup@v6
+        with:
+          version: latest
+      -
+        name: Cache PNPM
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.PNPM_HOME }}
+          key: ${{ runner.os }}-pnpm-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      -
+        name: Install Dependencies
+        working-directory: pwa
+        run: pnpm install
+      -
+        name: Lint PWA
+        working-directory: pwa
+        run: pnpm lint
+
+      # Lint HELM
+      -
+        name: Cache Helm Dependencies
+        uses: actions/cache@v6
+        with:
+          path: helm/api-platform/charts/
+          key: ${{ runner.os }}-helm-dependencies-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-helm-dependencies-
+      -
+        name: Build Helm Dependencies
+        run: |
+          helm repo add external-dns https://kubernetes-sigs.github.io/external-dns/
+          helm dependency build ./helm/api-platform
+      -
+        name: Lint Helm
+        run: helm lint ./helm/api-platform/
+
+      # Lint Markdown Docs
+      -
+        name: Lint changelog file
+        uses: docker://avtodev/markdown-lint:v1
+        with:
+          config: 'docs/.markdown-lint.yaml'
+          args: 'docs/**/*.md'

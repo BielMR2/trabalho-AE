@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://github.com/SchemaStore/schemastore/blob/master/src/schemas/json/github-workflow.json
+name: Cleanup
+
+on:
+  pull_request:
+    types: [ closed ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  GKE_CLUSTER: api-platform-demo
+  GCE_ZONE: europe-west1-c
+
+jobs:
+  cleanup:
+    name: Uninstall K8s Release for Closed Pull Request
+    if: ${{ github.repository == 'api-platform/demo' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      -
+        name: Auth gcloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GKE_SA_KEY }}
+      -
+        name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ secrets.GKE_PROJECT }}
+      -
+        name: Configure gcloud
+        run: |
+          gcloud components install gke-gcloud-auth-plugin
+          gcloud --quiet auth configure-docker
+          gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} --zone ${{ env.GCE_ZONE }}
+      -
+        name: Check for existing namespace
+        id: k8s-namespace
+        run: echo "namespace=$(kubectl get namespace pr-${{ github.event.number }} | tr -d '\n' 2> /dev/null)" >> $GITHUB_OUTPUT
+      -
+        name: Delete ingress to trigger DNS cleanup
+        if: steps.k8s-namespace.outputs.namespace != ''
+        run: kubectl delete ingress --all -n pr-${{ github.event.number }}
+      -
+        name: Wait for external-dns to remove DNS records
+        if: steps.k8s-namespace.outputs.namespace != ''
+        run: sleep 30
+      -
+        name: Delete namespace
+        if: steps.k8s-namespace.outputs.namespace != ''
+        run: kubectl delete namespace pr-${{ github.event.number }}
