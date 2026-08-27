@@ -19,6 +19,9 @@ Try it online at <https://demo.api-platform.com>.
     $ cd demo
     $ docker compose up --wait
 
+    For exit
+    $ docker compose down
+
 You can now go to https://localhost
 
 Authentication and usage:
