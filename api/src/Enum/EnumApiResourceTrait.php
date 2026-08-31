@@ -6,12 +6,13 @@ namespace App\Enum;
 
 use ApiPlatform\Metadata\Operation;
 use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\Ignore;
 
 trait EnumApiResourceTrait
 {
     public function getId(): string
     {
-        return $this->name;
+        return $this->value;
     }
 
     #[Groups('Enum:read')]
@@ -20,6 +21,7 @@ trait EnumApiResourceTrait
         return $this->value;
     }
 
+    #[Ignore]
     public static function getCases(): array
     {
         return self::cases();
@@ -27,8 +29,8 @@ trait EnumApiResourceTrait
 
     public static function getCase(Operation $operation, array $uriVariables): ?static
     {
-        $name = $uriVariables['id'] ?? null;
+        $id = $uriVariables['id'] ?? null;
 
-        return self::tryFrom($name);
+        return self::tryFrom($id);
     }
 }

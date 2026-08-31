@@ -36,7 +36,7 @@ class EvaluationRating
   #[ORM\JoinColumn(nullable: false)]
   public Evaluation $evaluation;
 
-  #[ApiProperty(example: CriterionEnum::WheelchairAccessible->value, types: ['https://schema.org/Property'])]
+  #[ApiProperty(example: '/criterion_enums/wheelchair_accessible', types: ['https://schema.org/Property'])]
   #[Assert\NotNull]
   #[Groups(['Evaluation:read', 'Evaluation:write'])]
   #[ORM\Column(type: Types::STRING, enumType: CriterionEnum::class)]

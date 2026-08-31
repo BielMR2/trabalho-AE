@@ -145,4 +145,21 @@ class Evaluation
       }
       return $net;
   }
+
+  public function addRating(EvaluationRating $rating): self
+  {
+      if (!$this->ratings->contains($rating)) {
+          $this->ratings->add($rating);
+          $rating->evaluation = $this;
+      }
+
+      return $this;
+  }
+
+  public function removeRating(EvaluationRating $rating): self
+  {
+      $this->ratings->removeElement($rating);
+
+      return $this;
+  }
 }

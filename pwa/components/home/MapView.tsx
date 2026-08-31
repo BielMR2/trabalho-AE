@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { APIProvider, Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
+import { APIProvider, Map, Marker, useMap } from "@vis.gl/react-google-maps";
 import { Establishment } from "@/types/Establishment";
 
 function parseGeometry(pointString?: string | null): { lat: number; lng: number } | null {
@@ -32,7 +32,8 @@ interface MapViewProps {
   onMarkerClick: (establishment: Establishment) => void;
 }
 
-export default function MapView({ establishments, isLoading, onMarkerClick }: MapViewProps) {
+function MapContent({ establishments, onMarkerClick }: Omit<MapViewProps, "isLoading">) {
+  const map = useMap();
   const [userLocation, setUserLocation] = useState(DEFAULT_CENTER);
 
   useEffect(() => {
@@ -44,21 +45,37 @@ export default function MapView({ establishments, isLoading, onMarkerClick }: Ma
             lng: position.coords.longitude,
           });
         },
-        () => {
-          // Geolocation denied or failed, keep default
-        }
+        () => {}
       );
     }
   }, []);
 
+  // Fit bounds when establishments change
+  useEffect(() => {
+    if (!map || establishments.length === 0) return;
+
+    const bounds = new window.google.maps.LatLngBounds();
+    let hasValidCoords = false;
+
+    establishments.forEach((est) => {
+      const coords = parseGeometry(est.location);
+      if (coords) {
+        bounds.extend(coords);
+        hasValidCoords = true;
+      }
+    });
+
+    if (hasValidCoords) {
+      map.fitBounds(bounds);
+    }
+  }, [map, establishments]);
+
   return (
-    <div className="relative flex-1 h-full">
-      <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}>
-        <Map
-          style={{ width: "100%", height: "100%" }}
-          defaultCenter={userLocation}
-          center={userLocation}
-          defaultZoom={13}
+    <Map
+      style={{ width: "100%", height: "100%" }}
+      defaultCenter={userLocation}
+      center={userLocation}
+      defaultZoom={13}
           gestureHandling="greedy"
           disableDefaultUI={false}
           zoomControl={true}
@@ -72,21 +89,23 @@ export default function MapView({ establishments, isLoading, onMarkerClick }: Ma
             if (!coords) return null;
 
             return (
-              <AdvancedMarker
+              <Marker
                 key={est["@id"]}
                 position={coords}
                 onClick={() => onMarkerClick(est)}
                 title={est.name}
-              >
-                <Pin
-                  background="#0f929a"
-                  glyphColor="#ffffff"
-                  borderColor="#0a6b71"
-                />
-              </AdvancedMarker>
+              />
             );
           })}
-        </Map>
+    </Map>
+  );
+}
+
+export default function MapView({ establishments, isLoading, onMarkerClick }: MapViewProps) {
+  return (
+    <div className="relative flex-1 h-full">
+      <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}>
+        <MapContent establishments={establishments} onMarkerClick={onMarkerClick} />
       </APIProvider>
 
       {/* Loading overlay */}

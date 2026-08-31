@@ -28,6 +28,7 @@ services:
       target: dev
     volumes:
       - ./pwa:/srv/app
+      - /srv/app/node_modules
     environment:
       API_PLATFORM_CREATE_CLIENT_ENTRYPOINT: http://php
       API_PLATFORM_CREATE_CLIENT_OUTPUT: .
@@ -38,10 +39,10 @@ services:
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
     healthcheck:
       test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000 || exit 1" ]
-      start_period: 60s
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      start_period: 180s
+      interval: 10s
+      timeout: 10s
+      retries: 20
 
 ###> doctrine/doctrine-bundle ###
   database:

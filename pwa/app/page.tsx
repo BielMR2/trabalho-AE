@@ -7,6 +7,7 @@ import { Establishment } from "@/types/Establishment";
 import FilterSidebar, { ActiveFilters } from "@/components/home/FilterSidebar";
 import MapView from "@/components/home/MapView";
 import EstablishmentDrawer from "@/components/home/EstablishmentDrawer";
+import { useMercure } from "@/utils/mercure";
 
 const INITIAL_FILTERS: ActiveFilters = {
   name: "",
@@ -36,14 +37,18 @@ export default function HomePage() {
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(INITIAL_FILTERS);
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
 
-  const { data: establishments = [], isLoading } = useQuery({
+import { useMercure } from "@/utils/mercure";
+
+  const { data: response, isLoading } = useQuery({
     queryKey: ["establishments", activeFilters],
     queryFn: async () => {
       const url = buildEstablishmentsUrl(activeFilters);
-      const response = await fetchApi<any>(url);
-      return (response?.data?.["member"] ?? response?.data?.["hydra:member"] ?? []) as Establishment[];
+      return await fetchApi<any>(url);
     },
   });
+
+  const mercureData = useMercure(response?.data, response?.hubURL);
+  const establishments = (mercureData?.["member"] ?? mercureData?.["hydra:member"] ?? []) as Establishment[];
 
   return (
     <div className="flex h-[calc(100vh-53px)] overflow-hidden">
