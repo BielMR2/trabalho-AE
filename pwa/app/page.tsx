@@ -37,8 +37,6 @@ export default function HomePage() {
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>(INITIAL_FILTERS);
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
 
-import { useMercure } from "@/utils/mercure";
-
   const { data: response, isLoading } = useQuery({
     queryKey: ["establishments", activeFilters],
     queryFn: async () => {
