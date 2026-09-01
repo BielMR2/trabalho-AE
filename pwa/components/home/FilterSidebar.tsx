@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Filter, X } from "lucide-react";
+import { useMapsLibrary } from "@vis.gl/react-google-maps";
+import { useQuery } from "@tanstack/react-query";
+import { fetchApi } from "@/utils/dataAccess";
+import { Establishment } from "@/types/Establishment";
 
 const CRITERIA = [
   { value: "wheelchair_accessible", label: "Acesso p/ Cadeira de Rodas" },
@@ -31,14 +35,48 @@ export interface ActiveFilters {
 interface FilterSidebarProps {
   filters: ActiveFilters;
   onApplyFilters: (filters: ActiveFilters) => void;
+  onSelectEstablishment?: (establishment: Establishment) => void;
 }
 
-function FilterContent({ filters, onApplyFilters }: FilterSidebarProps) {
+function FilterContent({ filters, onApplyFilters, onSelectEstablishment }: FilterSidebarProps) {
   const [name, setName] = useState(filters.name);
   const [address, setAddress] = useState(filters.address);
   const [criterionAverages, setCriterionAverages] = useState<Record<string, string>>(
     { ...filters.criterionAverages }
   );
+  
+  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+
+  const { data: nameSuggestionsData } = useQuery({
+    queryKey: ["establishmentsAutocomplete", name],
+    queryFn: async () => {
+      if (!name || name.length < 2) return null;
+      return await fetchApi<any>(`/establishments?name=${encodeURIComponent(name)}&page=1`);
+    },
+    enabled: name.length >= 2,
+  });
+  const nameSuggestions = (nameSuggestionsData?.data?.["member"] ?? nameSuggestionsData?.data?.["hydra:member"] ?? []) as Establishment[];
+
+  const placesLibrary = useMapsLibrary("places");
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+  useEffect(() => {
+    if (!placesLibrary || !addressInputRef.current) return;
+    addressInputRef.current.innerHTML = "";
+    
+    // @ts-ignore
+    const autocomplete = new placesLibrary.PlaceAutocompleteElement();
+    
+    autocomplete.addEventListener("gmp-placeselect", (e: any) => {
+      const place = e.place;
+      if (place && place.displayName) {
+        setAddress(place.displayName);
+      }
+    });
+    
+    addressInputRef.current.appendChild(autocomplete);
+  }, [placesLibrary]);
 
   const handleCriterionToggle = (criterion: string, status: string) => {
     setCriterionAverages((prev) => {
@@ -83,14 +121,38 @@ function FilterContent({ filters, onApplyFilters }: FilterSidebarProps) {
       <Separator />
 
       {/* Name Filter */}
-      <div>
+      <div className="relative">
         <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Nome</label>
         <Input
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setShowNameSuggestions(true);
+          }}
+          onFocus={() => setShowNameSuggestions(true)}
           placeholder="Ex: Farmácia, Shopping..."
           className="text-sm"
         />
+        {showNameSuggestions && nameSuggestions.length > 0 && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-auto">
+            {nameSuggestions.map((est) => (
+              <button
+                key={est["@id"]}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100"
+                onClick={() => {
+                  setName(est.name);
+                  setShowNameSuggestions(false);
+                  if (onSelectEstablishment) {
+                    onSelectEstablishment(est);
+                  }
+                }}
+              >
+                <div className="font-medium text-gray-900">{est.name}</div>
+                <div className="text-xs text-gray-500 truncate">{est.address}</div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <Separator />
@@ -98,12 +160,7 @@ function FilterContent({ filters, onApplyFilters }: FilterSidebarProps) {
       {/* Address Filter */}
       <div>
         <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Endereço</label>
-        <Input
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Rua, bairro, cidade..."
-          className="text-sm"
-        />
+        <div ref={addressInputRef} className="w-full min-h-[40px] border rounded-md"></div>
       </div>
 
       <Separator />

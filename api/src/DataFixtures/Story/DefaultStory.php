@@ -6,13 +6,13 @@ namespace App\DataFixtures\Story;
 
 use App\DataFixtures\Factory\EstablishmentFactory;
 use App\DataFixtures\Factory\EvaluationFactory;
+use App\DataFixtures\Factory\EvaluationRatingFactory;
+use App\DataFixtures\Factory\EvaluationVoteFactory;
 use App\DataFixtures\Factory\FileFactory;
 use App\DataFixtures\Factory\ImageFactory;
 use App\DataFixtures\Factory\UserFactory;
 use App\Enum\CriterionEnum;
 use Zenstruck\Foundry\Story;
-
-use App\DataFixtures\Factory\EvaluationRatingFactory;
 
 final class DefaultStory extends Story
 {
@@ -20,8 +20,15 @@ final class DefaultStory extends Story
     {
         $criteria = CriterionEnum::cases();
 
+        // Create random files and images first so we can attach images to ratings
+        FileFactory::createMany(10);
+        $images = ImageFactory::createMany(10);
+
         // Create establishments
         $establishments = EstablishmentFactory::createMany(30);
+
+        // Create users for voting
+        $voters = UserFactory::createMany(5);
 
         // Add random evaluations to the establishments
         foreach ($establishments as $establishment) {
@@ -36,18 +43,34 @@ final class DefaultStory extends Story
                     $shuffledCriteria = $criteria;
                     shuffle($shuffledCriteria);
                     for ($i = 0; $i < $numRatings; $i++) {
-                        EvaluationRatingFactory::createOne([
+                        // Select 0 to 2 random images for this rating
+                        $ratingImages = [];
+                        $numImages = random_int(0, 2);
+                        if ($numImages > 0) {
+                            $shuffledImages = $images;
+                            shuffle($shuffledImages);
+                            $ratingImages = array_slice($shuffledImages, 0, $numImages);
+                        }
+
+                        $rating = EvaluationRatingFactory::createOne([
                             'evaluation' => $evaluation,
                             'criterion' => $shuffledCriteria[$i],
+                            'images' => $ratingImages,
                         ]);
+
+                        // Add random votes to some ratings (50% chance per voter)
+                        foreach ($voters as $voter) {
+                            if (random_int(0, 1) === 1) {
+                                EvaluationVoteFactory::createOne([
+                                    'evaluationRating' => $rating,
+                                    'user' => $voter,
+                                ]);
+                            }
+                        }
                     }
                 }
             }
         }
-
-        // Create random files and images
-        FileFactory::createMany(10);
-        ImageFactory::createMany(10);
 
         // Create default user
         UserFactory::createOne([

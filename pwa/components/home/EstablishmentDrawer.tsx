@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MapPin, Phone, Globe, Star } from "lucide-react";
 import { signInWithKeycloak, useSession } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
 
 const CRITERION_LABELS: Record<string, string> = {
   wheelchair_accessible: "Cadeira de Rodas",
@@ -35,14 +36,26 @@ interface EstablishmentDrawerProps {
 }
 
 export default function EstablishmentDrawer({ establishment, onClose }: EstablishmentDrawerProps) {
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
+  const router = useRouter();
 
-  const handleAddEvaluation = () => {
+  const handleAddEvaluation = async () => {
+    if (!establishment || isPending) return;
+    
+    const params = new URLSearchParams();
+    if (establishment.googlePlaceId) params.set("placeId", establishment.googlePlaceId);
+    if (establishment.name) params.set("name", establishment.name);
+    
+    const evaluateUrl = `/evaluate?${params.toString()}`;
+    
     if (!session) {
-      signInWithKeycloak(window.location.href);
+      try {
+        await signInWithKeycloak(`${window.location.origin}${evaluateUrl}`);
+      } catch (e) {
+        console.error("Login redirect failed:", e);
+      }
     } else {
-      // TODO: navigate to evaluation form
-      alert("Funcionalidade de avaliação em desenvolvimento!");
+      router.push(evaluateUrl);
     }
   };
 
@@ -99,7 +112,7 @@ export default function EstablishmentDrawer({ establishment, onClose }: Establis
             )}
 
             {/* Add evaluation button */}
-            <Button onClick={handleAddEvaluation} className="w-full bg-cyan-700 hover:bg-cyan-800 text-white">
+            <Button onClick={handleAddEvaluation} disabled={isPending} className="w-full bg-cyan-700 hover:bg-cyan-800 text-white">
               + Adicionar Avaliação
             </Button>
           </div>

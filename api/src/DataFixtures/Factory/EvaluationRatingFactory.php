@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\DataFixtures\Factory;
 
 use App\Entity\EvaluationRating;
-use App\Enum\Criterion;
+use App\Enum\CriterionEnum;
 use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 use function Zenstruck\Foundry\lazy;
 
@@ -18,7 +18,7 @@ final class EvaluationRatingFactory extends PersistentObjectFactory
     {
         return [
             'rating' => self::faker()->numberBetween(0, 10),
-            'criterion' => self::faker()->randomElement(Criterion::cases()),
+            'criterion' => self::faker()->randomElement(CriterionEnum::cases()),
             'evaluation' => lazy(static fn(): EvaluationFactory => EvaluationFactory::new()),
         ];
     }

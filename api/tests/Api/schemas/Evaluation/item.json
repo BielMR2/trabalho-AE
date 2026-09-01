@@ -23,10 +23,34 @@
             "type": ["string", "null"]
         },
         "ratings": {
-            "type": "array"
-        },
-        "netVotes": {
-            "type": "integer"
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "criterion": {
+                        "type": "string"
+                    },
+                    "rating": {
+                        "type": "integer"
+                    },
+                    "netVotes": {
+                        "type": "integer"
+                    },
+                    "currentUserVote": {
+                        "type": ["integer", "null"]
+                    },
+                    "images": {
+                        "type": "array",
+                        "items": {
+                            "type": ["string", "object"]
+                        }
+                    }
+                }
+            }
         },
         "establishment": {
             "type": ["string", "object"]

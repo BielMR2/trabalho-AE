@@ -53,21 +53,28 @@ export const useMercure = <
       data["member"] &&
       data["member"].length !== 0
     ) {
-      const eventSources: EventSource[] = [];
-      // It's a PagedCollection
-      data["member"].forEach((obj, pos) => {
-        eventSources.push(
-          mercureSubscribe(hubURL, obj, (datum) => {
-            if (data["member"]) {
-              data["member"][pos] = datum;
-            }
+      // It's a PagedCollection. Group all topics into a single connection.
+      const url = new URL(hubURL, window.origin);
+      data["member"].forEach((obj) => {
+        if (obj["@id"]) {
+          url.searchParams.append("topic", new URL(obj["@id"], window.origin).toString());
+        }
+      });
+
+      const eventSource = new EventSource(url.toString());
+      eventSource.addEventListener("message", (event) => {
+        const datum = JSON.parse(event.data);
+        if (data["member"]) {
+          const index = data["member"].findIndex((item) => item["@id"] === datum["@id"]);
+          if (index !== -1) {
+            data["member"][index] = datum;
             setData({ ...data });
-          })
-        );
+          }
+        }
       });
 
       return () => {
-        eventSources.forEach((eventSource) => eventSource.close());
+        eventSource.close();
       };
     }
 

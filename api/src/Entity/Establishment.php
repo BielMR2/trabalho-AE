@@ -163,11 +163,12 @@ class Establishment
         $counts = [];
 
         foreach ($this->evaluations as $evaluation) {
-            if ($evaluation->getNetVotes() <= -3) {
-                continue;
-            }
-
             foreach ($evaluation->ratings as $rating) {
+                // Excluir ratings individuais com reputação negativa
+                if ($rating->getNetVotes() <= -3) {
+                    continue;
+                }
+
                 $criterion = $rating->criterion->value;
                 
                 if (!isset($summary[$criterion])) {

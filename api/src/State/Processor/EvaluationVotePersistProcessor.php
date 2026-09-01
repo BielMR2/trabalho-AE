@@ -16,6 +16,10 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
+ * Processa votos em EvaluationRating com lógica de upsert.
+ * Se o usuário já votou neste rating, atualiza o valor.
+ * Caso contrário, cria um novo voto associando o usuário autenticado.
+ *
  * @implements ProcessorInterface<EvaluationVote, EvaluationVote>
  */
 final readonly class EvaluationVotePersistProcessor implements ProcessorInterface
@@ -43,7 +47,7 @@ final readonly class EvaluationVotePersistProcessor implements ProcessorInterfac
         }
 
         $existingVote = $this->entityManager->getRepository(EvaluationVote::class)->findOneBy([
-            'evaluation' => $data->evaluation,
+            'evaluationRating' => $data->evaluationRating,
             'user' => $currentUser
         ]);
 

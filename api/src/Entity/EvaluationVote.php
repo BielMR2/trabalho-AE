@@ -21,6 +21,9 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
+ * Voto em um rating individual de uma avaliação.
+ * Cada usuário pode ter no máximo 1 voto por EvaluationRating (upsert).
+ *
  * @see https://schema.org/Rating
  */
 #[ApiResource(
@@ -36,7 +39,7 @@ use Symfony\Component\Validator\Constraints as Assert;
     denormalizationContext: ['groups' => ['EvaluationVote:write']]
 )]
 #[ORM\Entity]
-#[UniqueEntity(fields: ['evaluation', 'user'], message: 'You have already voted for this evaluation.')]
+#[UniqueEntity(fields: ['evaluationRating', 'user'], message: 'You have already voted for this rating.')]
 class EvaluationVote
 {
     #[ApiProperty(identifier: true)]
@@ -50,10 +53,10 @@ class EvaluationVote
     #[ApiFilter(SearchFilter::class, strategy: 'exact')]
     #[ApiProperty(types: ['https://schema.org/object'])]
     #[Groups(['EvaluationVote:write', 'EvaluationVote:read'])]
-    #[ORM\ManyToOne(targetEntity: Evaluation::class, inversedBy: 'votes')]
+    #[ORM\ManyToOne(targetEntity: EvaluationRating::class, inversedBy: 'votes')]
     #[ORM\JoinColumn(nullable: false)]
     #[Assert\NotNull]
-    public Evaluation $evaluation;
+    public EvaluationRating $evaluationRating;
 
     #[ApiFilter(SearchFilter::class, strategy: 'exact')]
     #[ApiProperty(types: ['https://schema.org/author'])]

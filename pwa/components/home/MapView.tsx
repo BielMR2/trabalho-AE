@@ -30,9 +30,10 @@ interface MapViewProps {
   establishments: Establishment[];
   isLoading?: boolean;
   onMarkerClick: (establishment: Establishment) => void;
+  selectedEstablishment?: Establishment | null;
 }
 
-function MapContent({ establishments, onMarkerClick }: Omit<MapViewProps, "isLoading">) {
+function MapContent({ establishments, onMarkerClick, selectedEstablishment }: Omit<MapViewProps, "isLoading">) {
   const map = useMap();
   const [userLocation, setUserLocation] = useState(DEFAULT_CENTER);
 
@@ -70,20 +71,29 @@ function MapContent({ establishments, onMarkerClick }: Omit<MapViewProps, "isLoa
     }
   }, [map, establishments]);
 
+  // Pan to selected establishment
+  useEffect(() => {
+    if (!map || !selectedEstablishment) return;
+    const coords = parseGeometry(selectedEstablishment.location);
+    if (coords) {
+      map.panTo(coords);
+      map.setZoom(17);
+    }
+  }, [map, selectedEstablishment]);
+
   return (
     <Map
       style={{ width: "100%", height: "100%" }}
       defaultCenter={userLocation}
-      center={userLocation}
       defaultZoom={13}
-          gestureHandling="greedy"
-          disableDefaultUI={false}
-          zoomControl={true}
-          streetViewControl={false}
-          mapTypeControl={false}
-          fullscreenControl={false}
-          styles={MAP_STYLES}
-        >
+      gestureHandling="greedy"
+      disableDefaultUI={false}
+      zoomControl={true}
+      streetViewControl={false}
+      mapTypeControl={false}
+      fullscreenControl={false}
+      styles={MAP_STYLES}
+    >
           {establishments.map((est) => {
             const coords = parseGeometry(est.location);
             if (!coords) return null;
@@ -101,12 +111,10 @@ function MapContent({ establishments, onMarkerClick }: Omit<MapViewProps, "isLoa
   );
 }
 
-export default function MapView({ establishments, isLoading, onMarkerClick }: MapViewProps) {
+export default function MapView({ establishments, isLoading, onMarkerClick, selectedEstablishment }: MapViewProps) {
   return (
     <div className="relative flex-1 h-full">
-      <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}>
-        <MapContent establishments={establishments} onMarkerClick={onMarkerClick} />
-      </APIProvider>
+      <MapContent establishments={establishments} onMarkerClick={onMarkerClick} selectedEstablishment={selectedEstablishment} />
 
       {/* Loading overlay */}
       {isLoading && (

@@ -17,6 +17,7 @@ use ApiPlatform\Metadata\Put;
 use ApiPlatform\Metadata\UrlGeneratorInterface;
 use App\Repository\EvaluationRepository;
 use App\State\Processor\EvaluationPersistProcessor;
+use App\State\Provider\EvaluationCurrentUserVoteProvider;
 use App\Traits\RegisterActiveTrait;
 use App\Traits\RegisterDateTimeTrait;
 use Doctrine\DBAL\Types\Types;
@@ -63,6 +64,7 @@ use App\Validator as AppAssert;
   operations: [
     new GetCollection(
       uriTemplate: '/evaluations{._format}',
+      provider: EvaluationCurrentUserVoteProvider::class,
     ),
     new Post(
       uriTemplate: '/evaluations{._format}',
@@ -70,7 +72,8 @@ use App\Validator as AppAssert;
       security: 'is_granted("OIDC_USER")'
     ),
     new Get(
-      uriTemplate: '/evaluations/{id}{._format}'
+      uriTemplate: '/evaluations/{id}{._format}',
+      provider: EvaluationCurrentUserVoteProvider::class,
     )
   ],
   normalizationContext: [
@@ -95,7 +98,6 @@ class Evaluation
   public function __construct()
   {
     $this->ratings = new ArrayCollection();
-    $this->votes = new ArrayCollection();
   }
 
   #[ApiProperty(identifier: true, types: ['https://schema.org/identifier'])]
@@ -117,10 +119,6 @@ class Evaluation
   #[ORM\OneToMany(targetEntity: EvaluationRating::class, mappedBy: 'evaluation', cascade: ['persist', 'remove'])]
   public Collection $ratings;
 
-  #[Groups(groups: ['Evaluation:read'])]
-  #[ORM\OneToMany(targetEntity: EvaluationVote::class, mappedBy: 'evaluation', cascade: ['persist', 'remove'])]
-  public Collection $votes;
-
   #[ApiProperty(example: '/establishments/{id}', types: ['https://schema.org/object'])]
   #[Groups(groups: ['Evaluation:read'])]
   #[ORM\ManyToOne(targetEntity: Establishment::class, inversedBy: 'evaluations')]
@@ -134,16 +132,6 @@ class Evaluation
   public function getId(): Uuid
   {
     return $this->id;
-  }
-
-  #[Groups(['Evaluation:read', 'Establishments:read', 'Establishments:read:admin'])]
-  public function getNetVotes(): int
-  {
-      $net = 0;
-      foreach ($this->votes as $vote) {
-          $net += $vote->value;
-      }
-      return $net;
   }
 
   public function addRating(EvaluationRating $rating): self
