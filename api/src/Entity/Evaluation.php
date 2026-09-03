@@ -101,7 +101,7 @@ class Evaluation
   }
 
   #[ApiProperty(identifier: true, types: ['https://schema.org/identifier'])]
-  #[Groups(['Evaluation:read', 'Establishments:read', 'Establishments:read:admin'])]
+  #[Groups(['Evaluation:read', 'Establishments:read', 'Establishments:read:admin', 'Evaluation:simple:read'])]
   #[ORM\Column(type: UuidType::NAME, unique: true)]
   #[ORM\CustomIdGenerator(class: UuidGenerator::class)]
   #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -109,12 +109,12 @@ class Evaluation
   private Uuid $id;
 
   #[ApiProperty(example: 'Ótima experiência!', types: ['https://schema.org/text'])]
-  #[Groups(groups: ['Evaluation:read', 'Evaluation:write', 'Establishments:read', 'Establishments:read:admin'])]
+  #[Groups(groups: ['Evaluation:read', 'Evaluation:write', 'Establishments:read', 'Establishments:read:admin', 'Evaluation:simple:read'])]
   #[AppAssert\OpenAiModeration]
   #[ORM\Column(type: Types::TEXT, nullable: true)]
   public ?string $comment = null;
 
-  #[Groups(groups: ['Evaluation:read', 'Evaluation:write', 'Establishments:read', 'Establishments:read:admin'])]
+  #[Groups(groups: ['Evaluation:read', 'Evaluation:write', 'Establishments:read', 'Establishments:read:admin', 'Evaluation:simple:read'])]
   #[ApiProperty(example: '/evaluation_criteria/{id}')]
   #[ORM\OneToMany(targetEntity: EvaluationRating::class, mappedBy: 'evaluation', cascade: ['persist', 'remove'])]
   public Collection $ratings;

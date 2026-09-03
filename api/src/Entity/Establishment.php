@@ -69,7 +69,7 @@ use Symfony\Component\Uid\Uuid;
         new Get(
             uriTemplate: '/establishments/{id}{._format}',
             normalizationContext: [
-                AbstractNormalizer::GROUPS => ['Establishment:read', 'Evaluation:read'],
+                AbstractNormalizer::GROUPS => ['Establishment:read', 'Evaluation:simple:read'],
                 AbstractObjectNormalizer::SKIP_NULL_VALUES => true,
             ],
         ),

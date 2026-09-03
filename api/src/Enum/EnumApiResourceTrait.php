@@ -27,6 +27,7 @@ trait EnumApiResourceTrait
         return self::cases();
     }
 
+    #[Groups('Enum:read')]
     public static function getCase(Operation $operation, array $uriVariables): ?static
     {
         $id = $uriVariables['id'] ?? null;

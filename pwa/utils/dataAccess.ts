@@ -100,3 +100,30 @@ export const parsePage = (path: string) =>
     new RegExp(/[?&]page=(\d+)/).exec(path)?.[1] ?? "1",
     10
   );
+
+const filterObject = (object: object) => Object.fromEntries(Object.entries(object).filter(([, value]) => {
+  return typeof value === "object" ? Object.keys(value).length > 0 : value?.toString().length > 0;
+}));
+
+export const buildUriFromFilters = (uri: string, filters: Record<string, any>): string => {
+  // remove empty filters
+  filters = filterObject(filters);
+
+  const params = new URLSearchParams();
+  Object.keys(filters).forEach((filter: string) => {
+    const value = filters[filter];
+    if (typeof value === "string" || typeof value === "number") {
+      params.append(filter, value.toString());
+    } else if (Array.isArray(value)) {
+      value.forEach((v: string) => {
+        params.append(`${filter}[]`, v);
+      });
+    } else if (typeof value === "object") {
+      Object.entries(value).forEach(([k, v]) => {
+         if (v !== undefined && v !== null) params.append(`${filter}[${k}]`, (v as string|number).toString());
+      });
+    }
+  });
+
+  return `${uri}${params.size === 0 ? "" : `?${params.toString()}`}`;
+};

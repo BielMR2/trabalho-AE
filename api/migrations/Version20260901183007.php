@@ -43,14 +43,15 @@ final class Version20260901183007 extends AbstractMigration
         $this->addSql('ALTER TABLE evaluation_rating_image ADD CONSTRAINT FK_9619B6683DA5256D FOREIGN KEY (image_id) REFERENCES image (id) ON DELETE CASCADE');
         $this->addSql('ALTER TABLE evaluation_vote ADD CONSTRAINT FK_1756CADCD8322442 FOREIGN KEY (evaluation_rating_id) REFERENCES evaluation_rating (id) NOT DEFERRABLE');
         $this->addSql('ALTER TABLE evaluation_vote ADD CONSTRAINT FK_1756CADCA76ED395 FOREIGN KEY (user_id) REFERENCES "user" (id) NOT DEFERRABLE');
+        $this->addSql('UPDATE establishment SET location = ST_SetSRID(location, 4326) WHERE ST_SRID(location) != 4326');
+        $this->addSql('CREATE INDEX idx_establishment_location_gist ON establishment USING GIST(location)');
     }
 
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs
-        $this->addSql('CREATE SCHEMA tiger_data');
-        $this->addSql('CREATE SCHEMA tiger');
-        $this->addSql('CREATE SCHEMA topology');
+        $this->addSql('DROP INDEX IF EXISTS idx_establishment_location_gist');
+        $this->addSql('UPDATE establishment SET location = ST_SetSRID(location, 0) WHERE ST_SRID(location) = 4326');
         $this->addSql('ALTER TABLE evaluation DROP CONSTRAINT FK_1323A5758565851');
         $this->addSql('ALTER TABLE evaluation_rating DROP CONSTRAINT FK_12F613D5456C5646');
         $this->addSql('ALTER TABLE evaluation_rating_image DROP CONSTRAINT FK_9619B668D8322442');

@@ -35,9 +35,9 @@ final class EstablishmentRemoveProcessorTest extends TestCase
     public function itSetsEvaluationsToInactiveAndRemovesEstablishment(): void
     {
         $uuid = Uuid::v4();
-        $establishment = $this->createMock(Establishment::class);
+        $establishment = $this->createStub(Establishment::class);
         $establishment->method('getId')->willReturn($uuid);
-        $operation = $this->createMock(Operation::class);
+        $operation = $this->createStub(Operation::class);
 
         $this->establishmentRepositoryMock
             ->expects($this->once())

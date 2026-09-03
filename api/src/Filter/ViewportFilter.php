@@ -95,28 +95,37 @@ final class ViewportFilter extends AbstractFilter
         $queryBuilder->setParameter($northParam, $north);
         $queryBuilder->setParameter($eastParam, $east);
 
-        // Correlated subquery: count active evaluations per establishment
-        $evalAlias = $queryNameGenerator->generateParameterName('vf_eval');
-        $evalCountDql = sprintf(
-            '(SELECT COUNT(%s.id) FROM %s %s WHERE %s.establishment = %s AND %s.active = true)',
-            $evalAlias,
-            Evaluation::class,
-            $evalAlias,
-            $evalAlias,
-            $alias,
-            $evalAlias,
-        );
-
         // Zoom tier: filter by minimum evaluation count
         $minCount = $this->getMinEvaluationCount($zoom);
         if ($minCount > 0) {
+            $evalAliasWhere = $queryNameGenerator->generateParameterName('vf_eval_w');
+            $evalCountWhereDql = sprintf(
+                '(SELECT COUNT(%s.id) FROM %s %s WHERE %s.establishment = %s AND %s.active = true)',
+                $evalAliasWhere,
+                Evaluation::class,
+                $evalAliasWhere,
+                $evalAliasWhere,
+                $alias,
+                $evalAliasWhere,
+            );
+
             $minCountParam = $queryNameGenerator->generateParameterName('vp_min_eval');
-            $queryBuilder->andWhere(sprintf('%s >= :%s', $evalCountDql, $minCountParam));
+            $queryBuilder->andWhere(sprintf('%s >= :%s', $evalCountWhereDql, $minCountParam));
             $queryBuilder->setParameter($minCountParam, $minCount);
         }
 
         // Order by relevance (most evaluations first)
-        $queryBuilder->addSelect(sprintf('%s AS HIDDEN vp_eval_count', $evalCountDql));
+        $evalAliasSelect = $queryNameGenerator->generateParameterName('vf_eval_s');
+        $evalCountSelectDql = sprintf(
+            '(SELECT COUNT(%s.id) FROM %s %s WHERE %s.establishment = %s AND %s.active = true)',
+            $evalAliasSelect,
+            Evaluation::class,
+            $evalAliasSelect,
+            $evalAliasSelect,
+            $alias,
+            $evalAliasSelect,
+        );
+        $queryBuilder->addSelect(sprintf('%s AS HIDDEN vp_eval_count', $evalCountSelectDql));
         $queryBuilder->addOrderBy('vp_eval_count', 'DESC');
 
         // Cap results per viewport

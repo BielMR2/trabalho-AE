@@ -15,9 +15,9 @@ parameters:
     # Viewport filter configuration for map-based establishment loading
     viewport.min_zoom: 13
     viewport.zoom_tiers:
-        13: 10   # zoom 13-14: only establishments with >= 10 evaluations
-        15: 3    # zoom 15-16: establishments with >= 3 evaluations
-        17: 0    # zoom 17+: all establishments
+        13: 10   # zoom 13: only establishments with >= 10 evaluations
+        14: 5    # zoom 14: establishments with >= 5 evaluations
+        15: 0    # zoom 15: establishments with >= 3 evaluations
     viewport.max_results: 100
 
 services:

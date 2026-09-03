@@ -46,12 +46,12 @@ class EvaluationRating
 
   #[ApiProperty(example: '/criterion_enums/wheelchair_accessible', types: ['https://schema.org/Property'])]
   #[Assert\NotNull]
-  #[Groups(['Evaluation:read', 'Evaluation:write'])]
+  #[Groups(['Evaluation:read', 'Evaluation:write', 'Establishment:read', 'Evaluation:simple:read'])]
   #[ORM\Column(type: Types::STRING, enumType: CriterionEnum::class)]
   public CriterionEnum $criterion;
 
   #[ApiProperty(example: 10)]
-  #[Groups(['Evaluation:read', 'Evaluation:write'])]
+  #[Groups(['Evaluation:read', 'Evaluation:write', 'Establishment:read', 'Evaluation:simple:read'])]
   #[Assert\Range(min: 0, max: 10)]
   #[ORM\Column(type: Types::SMALLINT)]
   public int $rating;

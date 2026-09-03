@@ -164,6 +164,9 @@ final class UserTest extends ApiTestCase
             'name' => 'Chuck NORRIS',
         ]);
 
+        // Must make a request to trigger OIDC user update
+        $this->client->request('GET', '/establishments', ['auth_bearer' => $token]);
+
         self::assertResponseIsSuccessful();
         $user = self::getContainer()->get(UserRepository::class)->find($user->getId());
         self::assertNotNull($user);
