@@ -50,7 +50,7 @@ final readonly class EvaluationPersistProcessor implements ProcessorInterface
       $establishment = new Establishment();
       $establishment->googlePlaceId = $data->establishmentGooglePlaceId;
       $establishment->name = $result['displayName']['text'] ?? 'Unknown';
-      $establishment->location = sprintf('POINT(%f %f)', $result['location']['longitude'], $result['location']['latitude']);
+      $establishment->location = sprintf('SRID=4326;POINT(%f %f)', $result['location']['longitude'], $result['location']['latitude']);
       $establishment->address = $result['formattedAddress'] ?? null;
       $establishment->phoneNumber = $result['nationalPhoneNumber'] ?? null;
       $establishment->website = $result['websiteUri'] ?? null;

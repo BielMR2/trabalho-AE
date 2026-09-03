@@ -10,6 +10,7 @@ use Jose\Component\Core\JWKSet;
 use Jose\Component\Signature\JWSLoader;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
 use Symfony\Component\Security\Http\AccessToken\Oidc\OidcTokenHandler;
@@ -39,6 +40,7 @@ final readonly class OidcDiscoveryTokenHandler implements AccessTokenHandlerInte
         private ClaimCheckerManager $claimCheckerManager,
         #[Autowire('@jose.header_checker.oidc')]
         private HeaderCheckerManager $headerCheckerManager,
+        #[Target('securityAuthorizationClient')]
         private HttpClientInterface $securityAuthorizationClient,
         private string $claim = 'email',
         private int $ttl = 600,

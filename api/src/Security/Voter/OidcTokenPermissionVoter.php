@@ -7,6 +7,7 @@ namespace App\Security\Voter;
 use ApiPlatform\Metadata\IriConverterInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
@@ -29,6 +30,7 @@ final class OidcTokenPermissionVoter extends OidcVoter
         AccessTokenExtractorInterface $accessTokenExtractor,
         #[Autowire('%env(OIDC_API_CLIENT_ID)%')]
         private readonly string $oidcClientId,
+        #[Target('securityAuthorizationClient')]
         private readonly HttpClientInterface $securityAuthorizationClient,
         private readonly IriConverterInterface $iriConverter,
         private readonly ?LoggerInterface $logger = null,

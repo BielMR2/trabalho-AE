@@ -1,5 +1,13 @@
 import { Item } from "./item";
 
+export interface ViewportBounds {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+  zoom: number;
+}
+
 export interface EvaluationRating {
   criterion: string;
   rating: number;

@@ -13,3 +13,6 @@ doctrine:
             string_functions:
                 ST_AsGeoJSON: 'Jsor\Doctrine\PostGIS\Functions\ST_AsGeoJSON'
                 ST_GeomFromGeoJSON: 'Jsor\Doctrine\PostGIS\Functions\ST_GeomFromGeoJSON'
+                ST_MakeEnvelope: 'Jsor\Doctrine\PostGIS\Functions\ST_MakeEnvelope'
+                ST_Within: 'Jsor\Doctrine\PostGIS\Functions\ST_Within'
+                ST_SetSRID: 'Jsor\Doctrine\PostGIS\Functions\ST_SetSRID'

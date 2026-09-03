@@ -1,188 +1,362 @@
+// Trigger Next.js hot reload
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
-import { useSession } from "@/hooks/useAuth";
+import React, { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useForm, Controller } from "react-hook-form";
+import * as yup from "yup";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { useMutation } from "@tanstack/react-query";
 import { APIProvider, useMapsLibrary } from "@vis.gl/react-google-maps";
+import { ArrowLeft, Accessibility, Bath, Footprints, BookOpen, Hand, Dog, MapPin } from "lucide-react";
+
+import { useAccessToken } from "@/hooks/useAuth";
 import { fetchApi } from "@/utils/dataAccess";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
+import { toast } from "@/components/ui/toast";
+
+declare var google: any;
 
 const CRITERIA = [
-  { value: "wheelchair_accessible", label: "Acesso p/ Cadeira de Rodas" },
-  { value: "accessible_restroom", label: "Banheiros Acessíveis" },
-  { value: "tactile_paving", label: "Piso Tátil" },
-  { value: "braille_signage", label: "Sinalização em Braille" },
-  { value: "sign_language", label: "Atendimento em Libras" },
-  { value: "service_animal_allowed", label: "Animais de Serviço Permitidos" },
+  { id: "wheelchair_accessible", label: "Acesso p/ Cadeira de Rodas", icon: Accessibility },
+  { id: "accessible_restroom", label: "Banheiros Acessíveis", icon: Bath },
+  { id: "tactile_paving", label: "Piso Tátil", icon: Footprints },
+  { id: "braille_signage", label: "Sinalização em Braille", icon: BookOpen },
+  { id: "sign_language", label: "Atendimento em Libras", icon: Hand },
+  { id: "service_animal_allowed", label: "Animais de Serviço", icon: Dog },
 ];
 
-function EvaluateForm() {
-  const { data: session } = useSession();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  
-  const initialPlaceId = searchParams.get("placeId") || "";
-  const initialName = searchParams.get("name") || "";
-  
-  const [googlePlaceId, setGooglePlaceId] = useState<string>(initialPlaceId);
-  const [address, setAddress] = useState<string>(initialName);
-  const [comment, setComment] = useState("");
-  const [ratings, setRatings] = useState<Record<string, number>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const schema = yup.object().shape({
+  establishmentGooglePlaceId: yup.string().required("Por favor, selecione um local válido."),
+  establishmentName: yup.string(),
+  comment: yup.string().max(500, "O comentário não pode ter mais de 500 caracteres"),
+  ratings: yup
+    .object()
+    .test(
+      "at-least-one-rating",
+      "É necessário avaliar pelo menos um critério.",
+      (value) => {
+        if (!value) return false;
+        return Object.values(value).some((val) => val !== undefined && val !== null);
+      }
+    )
+    .required("É necessário avaliar pelo menos um critério."),
+});
 
-  const placesLibrary = useMapsLibrary("places");
-  const addressInputRef = useRef<HTMLDivElement>(null);
+type FormData = yup.InferType<typeof schema>;
+
+function PlaceAutocomplete({ 
+  onPlaceSelect 
+}: { 
+  onPlaceSelect: (placeId: string, name: string) => void 
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const places = useMapsLibrary("places");
+  const [autocomplete, setAutocomplete] = useState<any | null>(null);
 
   useEffect(() => {
-    // If we already have a placeId from URL, we don't strictly need the autocomplete,
-    // but we can still initialize it for users who want to change the location.
-    if (!placesLibrary || !addressInputRef.current) return;
-    addressInputRef.current.innerHTML = "";
-    
-    // @ts-ignore
-    const autocomplete = new placesLibrary.PlaceAutocompleteElement();
-    
-    autocomplete.addEventListener("gmp-placeselect", (e: any) => {
-      const place = e.place;
-      if (!place) return;
-      
-      const placeId = place.id || (place.name ? place.name.replace("places/", "") : null) || place.place_id;
-      console.log("Selected place:", place);
-      if (placeId) {
-        setGooglePlaceId(placeId);
-        setAddress(place.displayName || "");
+    if (!places || !inputRef.current) return;
+
+    const widget = new places.Autocomplete(inputRef.current, {
+      fields: ["place_id", "name"],
+    });
+
+    setAutocomplete(widget);
+  }, [places]);
+
+  useEffect(() => {
+    if (!autocomplete) return;
+
+    const listener = autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      if (place.place_id && place.name) {
+        onPlaceSelect(place.place_id, place.name);
       }
     });
-    
-    addressInputRef.current.appendChild(autocomplete);
-  }, [placesLibrary]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!session) {
-      alert("Você precisa estar logado!");
-      return;
-    }
-    if (!googlePlaceId) {
-      alert("Selecione um local válido do Google Maps.");
-      return;
-    }
-
-    const ratingsPayload = Object.entries(ratings).map(([criterion, rating]) => ({
-      criterion: `/criterion_enums/${criterion}`,
-      rating,
-    }));
-
-    if (ratingsPayload.length === 0) {
-      alert("Avalie pelo menos um critério.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await fetchApi("/evaluations", {
-        method: "POST",
-        body: JSON.stringify({
-          establishmentGooglePlaceId: googlePlaceId,
-          comment: comment || null,
-          ratings: ratingsPayload,
-        }),
-      });
-      alert("Avaliação enviada com sucesso!");
-      router.push("/");
-    } catch (error: any) {
-      alert("Erro ao enviar avaliação: " + (error.message || "Tente novamente."));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleRatingChange = (criterion: string, val: number) => {
-    setRatings(prev => ({ ...prev, [criterion]: val }));
-  };
+    return () => {
+      google.maps.event.removeListener(listener);
+    };
+  }, [autocomplete, onPlaceSelect]);
 
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6 bg-white rounded-lg shadow-sm border mt-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Nova Avaliação</h1>
-      
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            Localização (Busque no Google Maps)
-          </label>
-          <div ref={addressInputRef} className="w-full min-h-[40px] border rounded-md"></div>
-          {address && <p className="text-sm text-green-600 mt-1">Local selecionado: {address}</p>}
-        </div>
+    <Input 
+      ref={inputRef} 
+      placeholder="Pesquisar por um local..." 
+      className="w-full"
+    />
+  );
+}
 
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Critérios de Acessibilidade (0 a 10)
-          </label>
-          <div className="space-y-4 bg-gray-50 p-4 rounded-lg border">
-            {CRITERIA.map((criterion) => {
-              const currentVal = ratings[criterion.value];
-              return (
-                <div key={criterion.value} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  <span className="text-sm font-medium text-gray-700 flex-1">
-                    {criterion.label}
-                  </span>
-                  <div className="flex items-center gap-3 w-full sm:w-1/2">
-                    <input
-                      type="range"
-                      min="0"
-                      max="10"
-                      step="1"
-                      value={currentVal !== undefined ? currentVal : 0}
-                      onChange={(e) => handleRatingChange(criterion.value, parseInt(e.target.value, 10))}
-                      className={`w-full accent-cyan-700 ${currentVal === undefined ? 'opacity-50 grayscale' : ''}`}
-                    />
-                    <span className="text-sm font-bold w-6 text-center">
-                      {currentVal !== undefined ? currentVal : "-"}
-                    </span>
+function EvaluationForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  
+  const { accessToken, session, isPending } = useAccessToken();
+
+  const placeIdParam = searchParams.get("placeId");
+  const placeNameParam = searchParams.get("name");
+
+  useEffect(() => {
+    if (!isPending && !session) {
+      router.push(`/login?callbackUrl=${encodeURIComponent("/evaluate")}`);
+    }
+  }, [isPending, session, router]);
+
+  const {
+    control,
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    setError,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<FormData>({
+    resolver: yupResolver(schema),
+    mode: "onChange",
+    defaultValues: {
+      establishmentGooglePlaceId: placeIdParam || "",
+      establishmentName: placeNameParam || "",
+      comment: "",
+      ratings: {},
+    },
+  });
+
+  const selectedPlaceId = watch("establishmentGooglePlaceId");
+  const selectedPlaceName = watch("establishmentName");
+  const commentValue = watch("comment");
+
+  const submitMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      if (!accessToken) throw new Error("Não autenticado");
+
+      const ratingsPayload = Object.entries(data.ratings || {})
+        .filter(([_, rating]) => rating !== undefined && rating !== null)
+        .map(([criterionId, rating]) => ({
+          criterion: `/criterion_enums/${criterionId}`,
+          rating: rating as number,
+        }));
+
+      const payload = {
+        establishmentGooglePlaceId: data.establishmentGooglePlaceId,
+        comment: data.comment || undefined,
+        ratings: ratingsPayload,
+      };
+
+      const res = await fetchApi("/evaluations", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }, accessToken);
+
+      return res;
+    },
+    onSuccess: () => {
+      toast.add({
+        title: "Avaliação enviada!",
+        description: "Obrigado por contribuir com nossa comunidade.",
+
+      });
+      router.push("/");
+    },
+    onError: (error: any) => {
+      if (error.fields && Object.keys(error.fields).length > 0) {
+        Object.entries(error.fields).forEach(([propertyPath, message]) => {
+          if (propertyPath === "comment") {
+            setError("comment", { message: message as string });
+          } else {
+            toast.add({
+              title: "Erro de validação",
+              description: message as string,
+
+            });
+          }
+        });
+      } else {
+        toast.add({
+          title: "Erro",
+          description: error.message || "Ocorreu um erro ao enviar a avaliação.",
+
+        });
+      }
+    },
+  });
+
+  const onSubmit = (data: FormData) => {
+    submitMutation.mutate(data);
+  };
+
+  const getRatingColor = (val: number | undefined | null) => {
+    if (val === undefined || val === null) return "text-muted-foreground";
+    if (val >= 7) return "text-success";
+    if (val >= 5) return "text-warning";
+    return "text-danger";
+  };
+
+  if (isPending || (!session && !isPending)) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p className="text-secondary text-lg">Carregando...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto p-4 sm:p-6 pb-20">
+      <header className="flex items-center mb-6">
+        <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2">
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <h1 className="text-2xl font-heading font-bold text-primary">Nova Avaliação</h1>
+      </header>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        <section>
+          <h2 className="text-lg font-semibold mb-3 text-primary">1. Selecione o Local</h2>
+          {selectedPlaceId && selectedPlaceName ? (
+            <Card className="bg-surface-card border border-border">
+              <CardContent className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary-900/10 p-2 rounded-full">
+                    <MapPin className="w-5 h-5 text-primary-700" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-text-primary">{selectedPlaceName}</p>
+                    <p className="text-sm text-text-secondary truncate">ID: {selectedPlaceId.substring(0, 10)}...</p>
                   </div>
                 </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    setValue("establishmentGooglePlaceId", "");
+                    setValue("establishmentName", "");
+                  }}
+                >
+                  Alterar
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div>
+              <PlaceAutocomplete 
+                onPlaceSelect={(id, name) => {
+                  setValue("establishmentGooglePlaceId", id, { shouldValidate: true });
+                  setValue("establishmentName", name);
+                }} 
+              />
+              {errors.establishmentGooglePlaceId && (
+                <p className="text-danger text-sm mt-1">{errors.establishmentGooglePlaceId.message}</p>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <div className="mb-3">
+            <h2 className="text-lg font-semibold text-primary">2. Avalie os Critérios</h2>
+            <p className="text-sm text-text-secondary">Arraste para avaliar os critérios que você observou (0 a 10). Pelo menos um é obrigatório.</p>
+          </div>
+          
+          <div className="grid gap-4 sm:grid-cols-2">
+            {CRITERIA.map((criterion) => {
+              const Icon = criterion.icon;
+              return (
+                <Card key={criterion.id} className="bg-surface-card border border-border">
+                  <CardHeader className="pb-2 p-4">
+                    <CardTitle className="text-md flex items-center gap-2">
+                      <Icon className="w-4 h-4 text-accent-600" />
+                      {criterion.label}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <Controller
+                      control={control}
+                      name={`ratings.${criterion.id}` as any}
+                      render={({ field: { value, onChange } }) => (
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center text-sm font-medium">
+                            <span className={getRatingColor(value)}>
+                              {value !== undefined && value !== null ? value : "Não avaliado"}
+                            </span>
+                            {(value !== undefined && value !== null) && (
+                              <button
+                                type="button"
+                                onClick={() => onChange(undefined)}
+                                className="text-xs text-text-secondary hover:text-text-primary underline"
+                              >
+                                Limpar
+                              </button>
+                            )}
+                          </div>
+                          <Slider
+                            defaultValue={[5]}
+                            value={value !== undefined && value !== null ? [value] : [5]}
+                            min={0}
+                            max={10}
+                            step={1}
+                            onValueChange={(vals) => onChange(Array.isArray(vals) ? vals[0] : vals)}
+                            className={value === undefined || value === null ? "opacity-50" : ""}
+                          />
+                        </div>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
-        </div>
+          {errors.ratings && (
+            <p className="text-danger text-sm mt-2">{errors.ratings.message as string}</p>
+          )}
+        </section>
 
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            Comentário (opcional)
-          </label>
+        <section>
+          <div className="mb-3">
+            <h2 className="text-lg font-semibold text-primary">3. Comentários (Opcional)</h2>
+            <p className="text-sm text-text-secondary">Descreva sua experiência detalhadamente.</p>
+          </div>
           <Textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Descreva a acessibilidade do local..."
-            className="h-24"
+            placeholder="Como foi sua experiência de acessibilidade?"
+            className="w-full min-h-[100px]"
+            {...register("comment")}
           />
-        </div>
+          <div className="flex justify-between mt-1 text-sm">
+            {errors.comment ? (
+              <span className="text-danger">{errors.comment.message}</span>
+            ) : (
+              <span></span>
+            )}
+            <span className={`text-text-secondary ${commentValue && commentValue.length > 500 ? 'text-danger' : ''}`}>
+              {commentValue?.length || 0} / 500
+            </span>
+          </div>
+        </section>
 
-        <div className="pt-2 flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.push("/")}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isSubmitting} className="bg-cyan-700 hover:bg-cyan-800 text-white">
-            {isSubmitting ? "Enviando..." : "Enviar Avaliação"}
-          </Button>
-        </div>
+        <Button 
+          type="submit" 
+          className="w-full py-6 text-lg" 
+          disabled={!isValid || submitMutation.isPending}
+        >
+          {submitMutation.isPending ? "Enviando..." : "Enviar Avaliação"}
+        </Button>
       </form>
     </div>
   );
 }
 
 export default function EvaluatePage() {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+  
   return (
-    <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}>
-      <div className="min-h-[calc(100vh-53px)] bg-gray-50 p-4">
-        <Suspense fallback={<div className="text-center p-8">Carregando...</div>}>
-          <EvaluateForm />
-        </Suspense>
-      </div>
+    <APIProvider apiKey={apiKey}>
+      <Suspense fallback={<div className="flex h-screen items-center justify-center">Carregando...</div>}>
+        <EvaluationForm />
+      </Suspense>
     </APIProvider>
   );
 }
-

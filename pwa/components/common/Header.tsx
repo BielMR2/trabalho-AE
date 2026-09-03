@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutlined";
+import { User, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { useSession, signInWithKeycloak, signOutWithKeycloak } from "../../hooks/useAuth";
 
@@ -9,39 +10,32 @@ export const Header = () => {
   const { data: session, isPending } = useSession();
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-      <nav className="flex items-center justify-between px-6 py-3" aria-label="Global">
-        <div className="text-xl font-bold">
-          <Link href="/" className="text-gray-900 hover:text-cyan-700 transition-colors">
-            Acessibiliza
-          </Link>
-        </div>
-        <div className="flex items-center gap-4">
+    <header className="bg-surface-card border-b border-border sticky top-0 z-30">
+      <nav className="flex items-center justify-between px-6 py-3" aria-label="Navegação principal">
+        <Link href="/" className="text-xl font-heading font-bold text-primary-900 hover:text-primary-700 transition-colors">
+          Acessibiliza
+        </Link>
+        <div className="flex items-center gap-3">
           {!isPending && session ? (
-            <a
-              href="#"
-              className="font-semibold text-sm text-gray-700 hover:text-gray-900 transition-colors"
-              role="menuitem"
-              onClick={(e) => {
-                e.preventDefault();
-                signOutWithKeycloak(`${window.location.origin}/`);
-              }}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => signOutWithKeycloak(`${window.location.origin}/`)}
+              className="text-text-secondary hover:text-text-primary gap-1.5"
             >
-              Sign out
-            </a>
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Sair</span>
+            </Button>
           ) : (
-            <a
-              href="#"
-              className="font-semibold text-sm text-gray-700 hover:text-gray-900 flex items-center gap-1 transition-colors"
-              role="menuitem"
-              onClick={(e) => {
-                e.preventDefault();
-                signInWithKeycloak();
-              }}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => signInWithKeycloak()}
+              className="text-text-secondary hover:text-text-primary gap-1.5"
             >
-              <PersonOutlineIcon className="w-5 h-5" />
-              Login
-            </a>
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">Entrar</span>
+            </Button>
           )}
         </div>
       </nav>

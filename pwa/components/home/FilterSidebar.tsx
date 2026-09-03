@@ -1,246 +1,116 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { Filter, Search } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Filter, X } from "lucide-react";
-import { useMapsLibrary } from "@vis.gl/react-google-maps";
-import { useQuery } from "@tanstack/react-query";
-import { fetchApi } from "@/utils/dataAccess";
-import { Establishment } from "@/types/Establishment";
-
-const CRITERIA = [
-  { value: "wheelchair_accessible", label: "Acesso p/ Cadeira de Rodas" },
-  { value: "accessible_restroom", label: "Banheiros Acessíveis" },
-  { value: "tactile_paving", label: "Piso Tátil" },
-  { value: "braille_signage", label: "Sinalização em Braille" },
-  { value: "sign_language", label: "Atendimento em Libras" },
-  { value: "service_animal_allowed", label: "Animais de Serviço Permitidos" },
-] as const;
-
-const STATUS_OPTIONS = [
-  { value: "bom", label: "Bom", description: "≥ 7", color: "bg-green-100 text-green-800 border-green-300" },
-  { value: "medio", label: "Médio", description: "5 a 7", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
-  { value: "ruim", label: "Ruim", description: "< 5", color: "bg-red-100 text-red-800 border-red-300" },
-] as const;
-
-export interface ActiveFilters {
-  name: string;
-  address: string;
-  criterionAverages: Record<string, string>; // { criterion_name: "bom"|"medio"|"ruim" }
-}
 
 interface FilterSidebarProps {
-  filters: ActiveFilters;
-  onApplyFilters: (filters: ActiveFilters) => void;
-  onSelectEstablishment?: (establishment: Establishment) => void;
+  filters: {
+    name?: string;
+    criterionAverages?: Record<string, string>;
+  };
+  onFiltersChange: (filters: { name?: string; criterionAverages?: Record<string, string> }) => void;
 }
 
-function FilterContent({ filters, onApplyFilters, onSelectEstablishment }: FilterSidebarProps) {
-  const [name, setName] = useState(filters.name);
-  const [address, setAddress] = useState(filters.address);
-  const [criterionAverages, setCriterionAverages] = useState<Record<string, string>>(
-    { ...filters.criterionAverages }
-  );
-  
-  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
-
-  const { data: nameSuggestionsData } = useQuery({
-    queryKey: ["establishmentsAutocomplete", name],
-    queryFn: async () => {
-      if (!name || name.length < 2) return null;
-      return await fetchApi<any>(`/establishments?name=${encodeURIComponent(name)}&page=1`);
-    },
-    enabled: name.length >= 2,
-  });
-  const nameSuggestions = (nameSuggestionsData?.data?.["member"] ?? nameSuggestionsData?.data?.["hydra:member"] ?? []) as Establishment[];
-
-  const placesLibrary = useMapsLibrary("places");
-  const addressInputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+export default function FilterSidebar({ filters, onFiltersChange }: FilterSidebarProps) {
+  const [searchTerm, setSearchTerm] = useState(filters.name || "");
+  const [criteria, setCriteria] = useState<Record<string, string>>(filters.criterionAverages || {});
 
   useEffect(() => {
-    if (!placesLibrary || !addressInputRef.current) return;
-    addressInputRef.current.innerHTML = "";
-    
-    // @ts-ignore
-    const autocomplete = new placesLibrary.PlaceAutocompleteElement();
-    
-    autocomplete.addEventListener("gmp-placeselect", (e: any) => {
-      const place = e.place;
-      if (place && place.displayName) {
-        setAddress(place.displayName);
-      }
-    });
-    
-    addressInputRef.current.appendChild(autocomplete);
-  }, [placesLibrary]);
+    const timer = setTimeout(() => {
+      onFiltersChange({ name: searchTerm, criterionAverages: criteria });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, criteria, onFiltersChange]);
 
-  const handleCriterionToggle = (criterion: string, status: string) => {
-    setCriterionAverages((prev) => {
-      const next = { ...prev };
-      if (next[criterion] === status) {
-        delete next[criterion];
+  const toggleCriterion = (criterion: string, level: string) => {
+    setCriteria(prev => {
+      const newCriteria = { ...prev };
+      if (newCriteria[criterion] === level) {
+        delete newCriteria[criterion];
       } else {
-        next[criterion] = status;
+        newCriteria[criterion] = level;
       }
-      return next;
+      return newCriteria;
     });
   };
 
-  const handleApply = () => {
-    onApplyFilters({ name, address, criterionAverages });
-  };
-
-  const handleClear = () => {
-    setName("");
-    setAddress("");
-    setCriterionAverages({});
-    onApplyFilters({ name: "", address: "", criterionAverages: {} });
-  };
-
-  const hasActiveFilters = name || address || Object.keys(criterionAverages).length > 0;
-
-  return (
-    <div className="flex flex-col gap-5 p-4 h-full overflow-y-auto">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-900">Filtros</h2>
-        {hasActiveFilters && (
-          <button
-            onClick={handleClear}
-            className="text-sm text-cyan-700 hover:text-cyan-900 flex items-center gap-1"
-          >
-            <X className="w-3 h-3" />
-            Limpar
-          </button>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Name Filter */}
-      <div className="relative">
-        <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Nome</label>
-        <Input
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            setShowNameSuggestions(true);
-          }}
-          onFocus={() => setShowNameSuggestions(true)}
-          placeholder="Ex: Farmácia, Shopping..."
-          className="text-sm"
-        />
-        {showNameSuggestions && nameSuggestions.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-auto">
-            {nameSuggestions.map((est) => (
-              <button
-                key={est["@id"]}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 focus:bg-gray-100"
-                onClick={() => {
-                  setName(est.name);
-                  setShowNameSuggestions(false);
-                  if (onSelectEstablishment) {
-                    onSelectEstablishment(est);
-                  }
-                }}
-              >
-                <div className="font-medium text-gray-900">{est.name}</div>
-                <div className="text-xs text-gray-500 truncate">{est.address}</div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Address Filter */}
-      <div>
-        <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Endereço</label>
-        <div ref={addressInputRef} className="w-full min-h-[40px] border rounded-md"></div>
-      </div>
-
-      <Separator />
-
-      {/* Criterion Average Filters */}
-      <div>
-        <label className="text-sm font-semibold text-gray-700 mb-3 block">
-          Acessibilidade
-        </label>
-        <div className="flex flex-col gap-4">
-          {CRITERIA.map((criterion) => (
-            <div key={criterion.value}>
-              <p className="text-xs font-medium text-gray-600 mb-1.5">{criterion.label}</p>
-              <div className="flex gap-1.5">
-                {STATUS_OPTIONS.map((status) => {
-                  const isActive = criterionAverages[criterion.value] === status.value;
-                  return (
-                    <button
-                      key={status.value}
-                      onClick={() => handleCriterionToggle(criterion.value, status.value)}
-                      className={`
-                        flex-1 text-xs py-1.5 px-2 rounded-md border transition-all font-medium
-                        ${isActive
-                          ? status.color + " border-current shadow-sm"
-                          : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
-                        }
-                      `}
-                      title={status.description}
-                    >
-                      {status.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+  const renderFilterOptions = () => (
+    <div className="flex flex-col gap-6 w-full mt-8">
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-text-secondary font-heading">Buscar</label>
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 text-text-secondary w-4 h-4" />
+          <Input 
+            className="pl-9 bg-surface-card border-border" 
+            placeholder="Nome do local..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
 
-      <Separator />
-
-      {/* Apply Button */}
-      <Button onClick={handleApply} className="w-full bg-cyan-700 hover:bg-cyan-800 text-white">
-        Aplicar Filtros
-      </Button>
+      <div className="space-y-4">
+        <label className="text-sm font-medium text-text-secondary font-heading">Filtros de Acessibilidade</label>
+        
+        {['wheelchair_accessible', 'accessible_restroom', 'tactile_paving', 'braille_signage', 'sign_language', 'service_animal_allowed'].map(criterion => {
+            const labels: Record<string, string> = {
+                wheelchair_accessible: 'Cadeira de Rodas',
+                accessible_restroom: 'Banheiro Acessível',
+                tactile_paving: 'Piso Tátil',
+                braille_signage: 'Sinalização Braille',
+                sign_language: 'Libras',
+                service_animal_allowed: 'Animais de Serviço',
+            };
+            
+            return (
+              <div key={criterion} className="space-y-2">
+                <span className="text-xs text-text-primary capitalize">{labels[criterion]}</span>
+                <div className="flex gap-2">
+                  {['bom', 'medio', 'ruim'].map(level => (
+                    <Button
+                      key={level}
+                      variant={criteria[criterion] === level ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleCriterion(criterion, level)}
+                      className={`flex-1 text-xs capitalize ${criteria[criterion] === level ? 'bg-primary-700 text-white hover:bg-primary-900' : 'text-text-secondary hover:text-text-primary'}`}
+                    >
+                      {level}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            );
+        })}
+      </div>
     </div>
   );
-}
-
-export default function FilterSidebar({ filters, onApplyFilters }: FilterSidebarProps) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-
-  const handleApplyMobile = (newFilters: ActiveFilters) => {
-    onApplyFilters(newFilters);
-    setSheetOpen(false);
-  };
 
   return (
     <>
-      {/* Desktop: fixed sidebar */}
-      <aside className="hidden md:block w-72 flex-shrink-0 border-r border-gray-200 bg-white overflow-y-auto">
-        <FilterContent filters={filters} onApplyFilters={onApplyFilters} />
-      </aside>
+      <div className="hidden md:flex flex-col w-[280px] h-full bg-surface-card border-r border-border p-4 shadow-sm z-10">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="text-primary-700" />
+          <h2 className="text-lg font-heading font-semibold text-text-primary">Filtros</h2>
+        </div>
+        {renderFilterOptions()}
+      </div>
 
-      {/* Mobile: floating button + Sheet */}
-      <div className="md:hidden absolute top-4 left-4 z-20">
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger render={<Button variant="secondary" className="shadow-lg" />}>
-              <Filter className="w-4 h-4 mr-2" />
-              Filtros
+      <div className="md:hidden absolute top-4 left-4 z-10">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" className="bg-surface-card shadow-sm w-10 h-10 p-0 rounded-full border-border">
+              <Filter className="w-5 h-5 text-primary-700" />
+            </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0">
-            <SheetHeader className="p-4 pb-0">
-              <SheetTitle>Filtrar Locais</SheetTitle>
-            </SheetHeader>
-            <FilterContent filters={filters} onApplyFilters={handleApplyMobile} />
+          <SheetContent side="left" className="w-[85vw] sm:w-[350px] bg-surface p-4">
+            <h2 className="text-lg font-heading font-semibold text-text-primary mb-4">Filtros</h2>
+            {renderFilterOptions()}
           </SheetContent>
         </Sheet>
       </div>
     </>
   );
 }
-

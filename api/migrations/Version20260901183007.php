@@ -20,6 +20,7 @@ final class Version20260901183007 extends AbstractMigration
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
+        $this->addSql('CREATE EXTENSION IF NOT EXISTS postgis');
         $this->addSql('CREATE TABLE establishment (id UUID NOT NULL, google_place_id TEXT DEFAULT NULL, name TEXT NOT NULL, address TEXT DEFAULT NULL, phone_number TEXT DEFAULT NULL, website TEXT DEFAULT NULL, location geometry(GEOMETRY, 0) NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, active BOOLEAN NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE UNIQUE INDEX UNIQ_DBEFB1EE983C031 ON establishment (google_place_id)');
         $this->addSql('CREATE TABLE evaluation (id UUID NOT NULL, comment TEXT DEFAULT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, active BOOLEAN NOT NULL, establishment_id UUID NOT NULL, PRIMARY KEY (id))');

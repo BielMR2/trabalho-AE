@@ -51,5 +51,5 @@ export async function signInWithKeycloak(callbackURL?: string) {
 
 export function signOutWithKeycloak(redirectUri?: string) {
   // Server-side route retrieves idToken from account, revokes session, and redirects to Keycloak logout
-  window.location.href = `/api/auth/keycloak-logout?post_logout_redirect_uri=${encodeURIComponent(redirectUri ?? `${window.location.origin}/books`)}`;
+  window.location.href = `/api/auth/keycloak-logout?post_logout_redirect_uri=${encodeURIComponent(redirectUri ?? `${window.location.origin}/`)}`;
 }

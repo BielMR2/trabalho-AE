@@ -4,24 +4,24 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
-use ApiPlatform\Doctrine\Common\Filter\SearchFilterInterface;
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiProperty;
-use App\Filter\CriterionAverageFilter;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Post;
-use ApiPlatform\Metadata\Put;
 use ApiPlatform\Metadata\UrlGeneratorInterface;
+use App\Filter\CriterionAverageFilter;
+use App\Filter\ViewportFilter;
 use App\Repository\EstablishmentRepository;
 use App\State\Processor\EstablishmentRemoveProcessor;
 use App\Traits\RegisterActiveTrait;
 use App\Traits\RegisterDateTimeTrait;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\IdGenerator\UuidGenerator;
@@ -31,8 +31,6 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Uid\Uuid;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 
 /**
  * @see https://schema.org/LocalBusiness
@@ -44,11 +42,11 @@ use Doctrine\Common\Collections\Collection;
     operations: [
         new Delete(
             uriTemplate: '/admin/establishments/{id}{._format}',
-            processor: EstablishmentRemoveProcessor::class
+            processor: EstablishmentRemoveProcessor::class,
         ),
         new Patch(
             uriTemplate: '/admin/establishments/{id}{._format}',
-        )
+        ),
     ],
     normalizationContext: [
         AbstractNormalizer::GROUPS => ['Establishments:read:admin', 'Evaluation:read', 'DateTime:read', 'Active:read'],
@@ -66,15 +64,15 @@ use Doctrine\Common\Collections\Collection;
     operations: [
         new GetCollection(
             uriTemplate: '/establishments{._format}',
-            filters: ['establishment.evaluations.ratings.criterion']
+            filters: ['establishment.evaluations.ratings.criterion'],
         ),
         new Get(
             uriTemplate: '/establishments/{id}{._format}',
             normalizationContext: [
                 AbstractNormalizer::GROUPS => ['Establishment:read', 'Evaluation:read'],
                 AbstractObjectNormalizer::SKIP_NULL_VALUES => true,
-            ]
-        )
+            ],
+        ),
     ],
     normalizationContext: [
         AbstractNormalizer::GROUPS => ['Establishment:read'],
@@ -91,12 +89,13 @@ use Doctrine\Common\Collections\Collection;
     ],
 )]
 #[ApiFilter(CriterionAverageFilter::class)]
+#[ApiFilter(ViewportFilter::class)]
 #[ORM\Entity(repositoryClass: EstablishmentRepository::class)]
 #[UniqueEntity(fields: ['googlePlaceId'])]
 class Establishment
 {
-    use RegisterDateTimeTrait;
     use RegisterActiveTrait;
+    use RegisterDateTimeTrait;
 
     #[ApiProperty(identifier: true, types: ['https://schema.org/identifier'])]
     #[Groups(groups: ['Establishment:read:admin'])]
@@ -170,14 +169,14 @@ class Establishment
                 }
 
                 $criterion = $rating->criterion->value;
-                
+
                 if (!isset($summary[$criterion])) {
                     $summary[$criterion] = 0;
                     $counts[$criterion] = 0;
                 }
-                
+
                 $summary[$criterion] += $rating->rating;
-                $counts[$criterion]++;
+                ++$counts[$criterion];
             }
         }
 
@@ -185,7 +184,7 @@ class Establishment
         foreach ($summary as $criterion => $totalScore) {
             $result[$criterion] = [
                 'average' => round($totalScore / $counts[$criterion], 2),
-                'count' => $counts[$criterion]
+                'count' => $counts[$criterion],
             ];
         }
 

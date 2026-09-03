@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\IriConverterInterface;
 use ApiPlatform\Metadata\Resource\Factory\ResourceMetadataCollectionFactoryInterface;
 use ApiPlatform\Metadata\UrlGeneratorInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -16,6 +17,7 @@ final readonly class ResourceResourceHandler implements ResourceHandlerInterface
     public function __construct(
         private ResourceMetadataCollectionFactoryInterface $resourceMetadataCollectionFactory,
         private IriConverterInterface $iriConverter,
+        #[Target('securityAuthorizationClient')]
         private HttpClientInterface $securityAuthorizationClient,
         #[Autowire('%env(OIDC_API_CLIENT_ID)%')]
         private string $oidcClientId,

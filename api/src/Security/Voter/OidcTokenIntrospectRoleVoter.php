@@ -6,6 +6,7 @@ namespace App\Security\Voter;
 
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
@@ -30,6 +31,7 @@ final class OidcTokenIntrospectRoleVoter extends OidcVoter
         private readonly string $oidcClientId,
         #[Autowire('%env(OIDC_API_CLIENT_SECRET)%')]
         private readonly string $oidcClientSecret,
+        #[Target('securityAuthorizationClient')]
         private readonly HttpClientInterface $securityAuthorizationClient,
         private readonly ?LoggerInterface $logger = null,
     ) {

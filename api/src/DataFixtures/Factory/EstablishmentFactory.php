@@ -56,10 +56,16 @@ final class EstablishmentFactory extends PersistentObjectFactory
      */
     protected function defaults(): array
     {
+        // Coordinates roughly around São Paulo (center: -23.5505, -46.6333)
+        $lat = self::faker()->latitude(-23.65, -23.45);
+        $lng = self::faker()->longitude(-46.75, -46.50);
+
         return [
             'name' => self::faker()->company(),
-            'googlePlaceId' => self::faker()->unique()->md5(),
-            'location' => sprintf('POINT(%f %f)', self::faker()->longitude(), self::faker()->latitude()),
+            'address' => self::faker()->streetAddress() . ', São Paulo - SP',
+            'phoneNumber' => self::faker()->phoneNumber(),
+            'googlePlaceId' => 'ChIJ' . self::faker()->regexify('[a-zA-Z0-9_-]{23}'),
+            'location' => sprintf('SRID=4326;POINT(%f %f)', $lng, $lat),
         ];
     }
 

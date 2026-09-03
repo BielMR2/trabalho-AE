@@ -8,63 +8,84 @@
 }
 
 @theme {
-  --font-sans: Poppins, system-ui;
+  /* Typography */
+  --font-heading: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Work Sans', system-ui, sans-serif;
+  --font-sans: 'Work Sans', system-ui, sans-serif;
 
-  --shadow-card: 0px 0px 20px 0px rgba(0, 0, 0, 0.15);
+  /* Primary — Sky Blue (confiança, acessibilidade) */
+  --color-primary-50: #F0F9FF;
+  --color-primary-100: #E0F2FE;
+  --color-primary-200: #BAE6FD;
+  --color-primary-500: #0EA5E9;
+  --color-primary-600: #0284C7;
+  --color-primary-700: #0369A1;
+  --color-primary-800: #075985;
+  --color-primary-900: #0C4A6E;
 
-  --default-transition-duration: 300ms;
+  /* Accent — Orange (ação, urgência) */
+  --color-accent-100: #FFEDD5;
+  --color-accent-500: #F97316;
+  --color-accent-600: #EA580C;
+  --color-accent-700: #C2410C;
 
-  --min-height-24: 96px;
+  /* Semantic — Ratings */
+  --color-success: #16A34A;
+  --color-success-light: #DCFCE7;
+  --color-warning: #CA8A04;
+  --color-warning-light: #FEF9C3;
+  --color-danger: #DC2626;
+  --color-danger-light: #FEE2E2;
 
-  --color-cyan-200: #bceff3;
-  --color-cyan-500: #46b6bf;
-  --color-cyan-700: #0f929a;
+  /* Surface */
+  --color-surface: #F8FAFC;
+  --color-surface-card: #FFFFFF;
 
-  --color-red-500: #ee4322;
+  /* Border */
+  --color-border: #E2E8F0;
+  --color-border-strong: #CBD5E1;
 
-  --color-black: #1d1e1c;
-  --color-white: #ffffff;
-  --color-transparent: transparent;
+  /* Text */
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94A3B8;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-float: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+
+  --default-transition-duration: 200ms;
 }
 
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
   *,
   ::after,
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+    border-color: var(--color-border);
   }
-}
 
-@utility bg-spider-cover {
-  @apply bg-cyan-700 bg-center bg-no-repeat;
-  background-image: url('../public/api-platform/web.svg');
-  background-size: 110%;
-}
+  * {
+    font-family: 'Work Sans', system-ui, sans-serif;
+  }
 
-@utility ribbon {
-  position: absolute;
-  top: 0;
-  right: 0;
-  transform: translate(13.397459%, -100%) rotate(30deg); /* translateX: 100%*(1-cos(angleRotation) */
-  transform-origin: bottom left;
-}
+  body {
+    color: var(--color-text-primary);
+    background-color: var(--color-surface);
+  }
 
-@layer base {
-    * {
-        font-family: Poppins;
-    }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', system-ui, sans-serif;
+  }
 
-    a {
-        @apply no-underline text-cyan-700;
-    }
+  a {
+    @apply no-underline text-primary-700;
+  }
 }

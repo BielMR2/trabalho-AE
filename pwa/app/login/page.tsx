@@ -10,7 +10,7 @@ function LoginRedirect() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    signInWithKeycloak(searchParams.get("callbackURL") ?? "/books");
+    signInWithKeycloak(searchParams.get("callbackURL") ?? "/");
   }, [searchParams]);
 
   return null;
