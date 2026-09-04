@@ -1,3 +1,12 @@
+GOPROXY="https://proxy.golang.org,direct" \
+GONOSUMDB="*" \
+GONOSUMCHECK="*" \
+
+
+
+
+
+
 <h1 align="center">
     <a href="https://api-platform.com">
         <img width="400" height="400" src="https://api-platform.com/images/zeus.svg" alt="API Platform">
