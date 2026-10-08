@@ -128,6 +128,7 @@ erDiagram
   - `phoneNumber`, `website` (string, nullable)
   - `location` (PostGIS geometry — `POINT(longitude latitude)`)
   - `evaluations` (OneToMany → Evaluation, cascade remove)
+  - `countryCode` (string, length 2, nullable)
 - **Método computado**: `getEvaluationsSummary()` — média e contagem por critério, exclui avaliações com netVotes ≤ -3
 - **Endpoints**:
   - `GET /establishments` (público, com filtro `criterion_average`)
@@ -144,6 +145,7 @@ erDiagram
   - `ratings` (OneToMany → EvaluationRating, cascade persist+remove)
   - `establishment` (ManyToOne → Establishment, not null)
   - `establishmentGooglePlaceId` (string, write-only — usado no POST)
+  - `countryCode` (string, length 2, nullable)
 - **Endpoints**:
   - `GET /evaluations` (público, provider: `EvaluationCurrentUserVoteProvider`)
   - `GET /evaluations/{id}` (público, provider: `EvaluationCurrentUserVoteProvider`)
@@ -234,9 +236,10 @@ erDiagram
 
 1. Valida que `establishmentGooglePlaceId` foi enviado
 2. Busca `Establishment` por `googlePlaceId` no banco
-3. Se não existe: chama `GooglePlacesClient::getPlaceDetails()` → cria `Establishment` com dados do Google
-4. Associa `establishment` ao `Evaluation`
-5. Delega para `PersistProcessor` do Doctrine
+3. Se não existe: chama `GooglePlacesClient::getPlaceDetails()` → cria `Establishment` com dados do Google (incluindo `countryCode`)
+4. Verifica localização: compara `GeoIpService::getCountryCode($clientIp)` com `Establishment::getCountryCode()`. Rejeita (400) se forem diferentes.
+5. Associa `establishment` e `countryCode` ao `Evaluation`
+6. Delega para `PersistProcessor` do Doctrine
 
 ### `EvaluationVotePersistProcessor`
 **Arquivo**: `api/src/State/Processor/EvaluationVotePersistProcessor.php`
@@ -332,6 +335,14 @@ sequenceDiagram
   3. Se `$response->results[0]->flagged === true` → violation
 - **Mensagem**: "O comentário viola nossas diretrizes de comunidade por conter linguagem inapropriada, assédio ou discurso de ódio."
 - **Falha silenciosa**: Em caso de erro de rede, o comentário passa (fail-open)
+
+### GeoIP (ip-api.com)
+**Arquivo**: `api/src/Service/GeoIpService.php`
+
+- **Endpoint**: `http://ip-api.com/json/{ip}`
+- **Uso**: Validação de localização ao criar `Evaluation`. Compara o país do IP com o país do `Establishment`.
+- **Cache**: 1 hora via componente Cache do Symfony.
+- **Falha silenciosa**: Retorna nulo se falhar, permitindo a avaliação (fail-open).
 
 ### Mercure (Real-time SSE)
 - Configurado em cada `ApiResource` com tópicos dinâmicos via expressões

@@ -1,7 +1,10 @@
 "use client";
 
 import { Input } from "../ui/input";
-
+import { Button } from "../ui/button";
+import { Plus, User } from "lucide-react";
+import { useSession, signInWithKeycloak, signOutWithKeycloak } from "../../hooks/useAuth";
+import { useRouter } from "next/navigation";
 export interface Filters {
   name: string;
   address: string;
@@ -14,6 +17,17 @@ interface FilterSidebarProps {
 }
 
 export function FilterSidebar({ filters, setFilters }: FilterSidebarProps) {
+  const router = useRouter();
+  const { session, isPending } = useSession();
+
+  const handleAddEvaluation = async () => {
+    if (session) {
+      router.push("/evaluation");
+    } else {
+      await signInWithKeycloak(window.location.origin + "/evaluation");
+    }
+  };
+
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFilters((prev) => ({ ...prev, name: e.target.value }));
   };
@@ -75,7 +89,7 @@ export function FilterSidebar({ filters, setFilters }: FilterSidebarProps) {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 flex-1">
         <h3 className="text-sm font-semibold tracking-tight text-muted-foreground uppercase">Avaliações</h3>
         {criteriaList.map((criterion) => (
           <div key={criterion.id} className="space-y-2">
@@ -92,6 +106,31 @@ export function FilterSidebar({ filters, setFilters }: FilterSidebarProps) {
             </select>
           </div>
         ))}
+      </div>
+
+      <div className="mt-auto pt-6 border-t flex flex-col gap-3">
+        <Button onClick={handleAddEvaluation} className="w-full gap-2" variant="default">
+          <Plus className="h-4 w-4" />
+          Adicionar Avaliação
+        </Button>
+
+        {isPending ? (
+          <Button variant="outline" disabled className="w-full">Carregando...</Button>
+        ) : session?.user ? (
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-center">
+              Logado como <span className="font-semibold">{session.user.name || session.user.email}</span>
+            </div>
+            <Button variant="outline" onClick={() => signOutWithKeycloak()} className="w-full">
+              Sair
+            </Button>
+          </div>
+        ) : (
+          <Button variant="outline" onClick={() => signInWithKeycloak()} className="w-full">
+            <User className="h-4 w-4 mr-2" />
+            Entrar
+          </Button>
+        )}
       </div>
     </aside>
   );
