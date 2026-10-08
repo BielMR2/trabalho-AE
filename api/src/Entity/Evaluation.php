@@ -125,6 +125,9 @@ class Evaluation
   #[ORM\JoinColumn(nullable: false)]
   public Establishment $establishment;
 
+  #[ORM\Column(type: Types::STRING, length: 2, nullable: true)]
+  public ?string $countryCode = null;
+
   #[ApiProperty(writable: true)]
   #[Groups(['Evaluation:write'])]
   public ?string $establishmentGooglePlaceId = null;

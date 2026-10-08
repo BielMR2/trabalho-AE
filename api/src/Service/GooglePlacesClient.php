@@ -27,7 +27,7 @@ class GooglePlacesClient
         $response = $this->httpClient->request('GET', 'https://places.googleapis.com/v1/places/' . $placeId, [
             'headers' => [
                 'X-Goog-Api-Key' => $this->googleApiKey,
-                'X-Goog-FieldMask' => 'id,displayName,location,formattedAddress,nationalPhoneNumber,websiteUri',
+                'X-Goog-FieldMask' => 'id,displayName,location,formattedAddress,nationalPhoneNumber,websiteUri,addressComponents',
                 'Accept-Language' => 'pt-BR'
             ]
         ]);

@@ -69,7 +69,7 @@ use Symfony\Component\Uid\Uuid;
         new Get(
             uriTemplate: '/establishments/{id}{._format}',
             normalizationContext: [
-                AbstractNormalizer::GROUPS => ['Establishment:read', 'Evaluation:simple:read'],
+                AbstractNormalizer::GROUPS => ['Establishment:read', 'Evaluation:simple:read', 'Enum:read'],
                 AbstractObjectNormalizer::SKIP_NULL_VALUES => true,
             ],
         ),
@@ -110,6 +110,9 @@ class Establishment
     #[ORM\Column(type: Types::TEXT, unique: true, nullable: true)]
     public ?string $googlePlaceId;
 
+    #[ORM\Column(type: Types::STRING, length: 2, nullable: true)]
+    public ?string $countryCode = null;
+
     #[ApiFilter(OrderFilter::class)]
     #[ApiFilter(SearchFilter::class, strategy: 'partial')]
     #[ApiProperty(example: 'Farol Shopping', types: ['https://schema.org/name'])]
@@ -144,6 +147,7 @@ class Establishment
     #[Groups(groups: ['Establishment:read'])]
     #[ORM\OneToMany(targetEntity: Evaluation::class, mappedBy: 'establishment', cascade: ['remove'])]
     public Collection $evaluations;
+
 
     public function __construct()
     {
