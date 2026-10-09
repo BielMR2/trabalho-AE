@@ -9,7 +9,6 @@
 | `/avaliar` | T3: Nova avaliação (assistente) | `user` | Client | A fazer |
 | `/avaliar?placeId=…` ou `/locais/[id]/avaliar` | T3 com o local já escolhido | `user` | Client | A fazer |
 | `/painel` | T4: Painel de dados | público | Client | A fazer |
-| `/sobre` | T5: Sobre o projeto e como avaliar | público | Server (estática) | A fazer |
 | `/acessibilidade` | T6: Declaração de acessibilidade e preferências | público | Server + Client | A fazer |
 | `/login` | T7: Login (redireciona ao Keycloak) | público | Client | Existe (trocar o callback padrão `/books` por `/`) |
 | `/minhas-avaliacoes` | T8: Minhas avaliações | `user` | Client | **Bloqueada pela lacuna L3** |
@@ -38,7 +37,7 @@ Em telas menores que `md` (768 px), a navegação vira um menu hambúrguer (`She
 ```
 Desktop (≥ 1024 px)
 ┌──────────────────────────────────────────────────────────────────────────┐
-│ [Pular para o conteúdo]  Acessibiliza   Explorar  Painel  Sobre  [Avaliar] [Aa] [Entrar] │
+│ [Pular para o conteúdo]  Acessibiliza   Explorar  Painel  [Avaliar] [Aa] [Entrar] │
 ├───────────────┬──────────────────────────────────────────────────────────┤
 │ FILTROS       │  🔍 Buscar local ou endereço...        [ Mapa | Lista ]  │
 │ Nome [_____]  │  "23 locais encontrados"  (aria-live)   Ordenar: [Nome▾] │
@@ -249,19 +248,6 @@ Passo 4 de 4 — Revise e envie
 | Ranking | `<table>` com cabeçalhos ordenáveis (`<button>` dentro de `<th>`, `aria-sort`) |
 | Exportar CSV | Gerado no cliente: `nome;endereço;latitude;longitude;<critério>_media;<critério>_n…` (separador `;` e BOM UTF-8, para abrir direito no Excel pt-BR) |
 | Nota metodológica | Explicar as faixas (Bom ≥ 7, Médio 5–7, Ruim < 5), que os dados são colaborativos e não auditados e a regra dos votos |
-
----
-
-## T5: Sobre (`/sobre`)
-
-Conteúdo estático, em linguagem simples (nível de leitura acessível; frases curtas):
-1. O que é o Acessibiliza (texto da introdução, resumido).
-2. Por que existe (justificativa, com as leis citadas e os dados do Censo 2022).
-3. **Como avaliar um local**: os 6 critérios explicados com foto/ilustração e exemplos do que é nota 0, 5 e 10.
-4. Como funcionam as notas e os votos.
-5. Regras da comunidade (moderação automática de comentários).
-6. Equipe, IFSC Câmpus Tubarão e contato.
-7. Vídeo em Libras com legenda, se disponível.
 
 ---
 
